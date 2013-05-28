@@ -13,7 +13,94 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#endif /* REPLAY_H_ */
+
+#define REPLAY_CONFIG_LOGGING 	1
+#define REPLAY_CONFIG_ROUTER 	2
+#define REPLAY_CONFIG_IF 		3
+
+#define REPLAY_EVENTS_NONE	0x00
+#define REPLAY_EVENTS_ALL	0xFF
+#define REPLAY_EVENTS_ADJ	0x01
+#define REPLAY_EVENTS_IF	0x02
+#define REPLAY_EVENTS_SPF	0x04
+#define REPLAY_EVENTS_AUTH	0x08
+
+#define REPLAY_PACKETS_NONE		0x00
+#define REPLAY_PACKETS_HELLO	0x01
+#define REPLAY_PACKETS_DBDESC	0X02
+#define REPLAY_PACKETS_LSR		0x04
+#define REPLAY_PACKETS_LSU		0x08
+#define REPLAY_PACKETS_LSACK	0x10
+#define REPLAY_PACKETS_ALL		0xFF
+
+#define REPLAY_LSDB_CURRENTONLY	0x00
+
+struct replay_config {
+
+	FILE *errors,*events,*packets,*lsdb;
+
+	u_int8_t log_packets;
+	u_int8_t log_events;
+	u_int8_t lsdb_history;
+
+};
+
+struct ospf {
+
+	// Interfaces running OSPF
+	struct ospf_interface *iflist;
+
+	// Router ID
+	struct in_addr router_id;
+
+	// link state database
+	struct ospf_lsdb *lsdb;
+
+	// OSPF local prefix list
+	struct ospf_prefix *pflist;
+
+	// OSPF neighbors
+	struct ospf_neighbor *nbrlist;
+
+	// OSPF protocol sockets - listening set
+	fd_set ospf_sockets_in;
+
+	// OSPF protocol sockets - sending set
+	fd_set ospf_sockets_out;
+
+	// OSPF protocol sockets - errors set
+	fd_set ospf_sockets_err;
+
+	// keeps track of the socket with the highest ID number as needed by select()
+	int max_socket;
+
+	// global timers
+	int hello_interval, dead_interval, transmit_delay, retransmit_interval;
+
+	// global cost setting
+	u_int8_t cost;
+
+};
+
+struct ospf_prefix {
+	struct in_addr network, mask;
+	struct ifreq *iface;
+
+};
+
+struct ospf_neighbor {
+
+};
+
+struct ospf_interface {
+
+
+};
+
+struct ospf_lsdb {
+
+
+};
 
 struct ospfhdr {
 
@@ -48,3 +135,5 @@ struct ospf_hello
 };
 
 #define OSPFHDR_LEN 24
+
+#endif /* REPLAY_H_ */
