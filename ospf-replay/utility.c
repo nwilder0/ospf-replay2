@@ -7,11 +7,11 @@
 
 #include "replay.h"
 
-extern struct replay_config *replay;
+extern struct replay_config *replay0;
 
 void replay_error(char* mesg) {
-	if(replay->errors) {
-		fprintf(replay->errors,"%s\n",mesg);
+	if(replay0->errors) {
+		fprintf(replay0->errors,"%s\n",mesg);
 	}
 	else {
 		printf("%s\n", mesg);
