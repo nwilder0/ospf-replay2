@@ -80,21 +80,33 @@ struct ospf {
 	// global cost setting
 	u_int8_t cost;
 
+	// passive interface default
+	u_int8_t passif;
+
 };
 
+#define OSPF_DEFAULT_PASSIF 0
+#define OSPF_DEFAULT_HELLO 10
+#define OSPF_DEFAULT_DEAD 40
+#define OSPF_DEFAULT_TRANSMITDELAY 0
+#define OSPF_DEFAULT_RETRANSMIT 0
+#define OSPF_DEFAULT_COST 10000
+
+
 struct ospf_prefix {
+	struct ospf_prefix *next;
 	struct in_addr network, mask;
 	struct ifreq *iface;
-
 };
 
 struct ospf_neighbor {
+	struct ospf_neighbor *next;
 
 };
 
 struct ospf_interface {
-
-
+	struct ospf_interface *next;
+	struct ifreq *iface;
 };
 
 struct ospf_lsdb {
