@@ -94,22 +94,37 @@ struct replay_list* remove_from_list(struct replay_list *list, struct replay_lis
 	}
 }
 
-struct in_addr* get_net(struct in_addr *addr, struct in_addr *mask) {
+uint32_t get_net(uint32_t addr, uint32_t mask) {
 
-	struct in_addr *net;
-	net = (struct in_addr *) malloc(sizeof(struct in_addr));
-	bzero((char *) &net, sizeof(net));
+	uint32_t net_addr;
 
-	net->s_addr = addr->s_addr & mask->s_addr;
+	net_addr = addr & mask;
 
-	return net;
+	return net_addr;
 }
 
 uint32_t bits2mask(int bits) {
 
 	uint32_t mask = 0;
 
+	mask = pow(2,bits)-1;
 
+	mask = mask << (32-bits);
 
+	mask = htonl(mask);
 
+	return mask;
 }
+
+int mask2bits(uint32_t mask) {
+
+	int bits = 0;
+
+	for(bits = 0; mask; mask >>= 1)
+	{
+	  bits += mask & 1;
+	}
+
+	return bits;
+}
+

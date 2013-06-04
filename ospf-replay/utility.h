@@ -22,8 +22,10 @@ void remove_from_list(struct replay_list*,struct replay_list*);
 
 const char* byte_to_binary(int);
 
-struct in_addr* get_net(struct in_addr*,struct in_addr*);
+uint32_t get_net(uint32_t,uint32_t);
 
+uint32_t bits2mask(int);
 
+int mask2bits(uint32_t);
 
 #endif /* UTILITY_H_ */

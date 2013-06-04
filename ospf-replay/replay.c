@@ -377,20 +377,85 @@ void process_packet(int socket) {
 }
 
 void add_prefix(char* full_string, int area) {
+
 	char net_string[16],mask_string[16];
 	struct ifreq *iface;
 	struct ifconf ifc;
 	struct in_addr net, mask;
+	struct ospf_prefix *new_prefix;
 
 	// split up the network and mask
 	net_string = strtok(full_string,"/");
 	mask_string = strtok(NULL,"/");
 
-	inet_pton(AF_INET,net_string,&net->s_addr);
-	inet_pton(AF_INET,mask_string,&mask->s_addr);
+	mask->s_addr = bits2mask(atoi(mask_string));
 
+	inet_pton(AF_INET,net_string,net.s_addr);
 
-	// find interface
-	// add to prefix list
-	// add interface to list
+	iface = find_interface(net.s_addr,mask.s_addr);
+
+	new_prefix = (struct ospf_prefix *) malloc(sizeof(struct ospf_prefix));
+
+	new_prefix->mask.s_addr = mask.s_addr;
+	new_prefix->network.s_addr = net.s_addr;
+	new_prefix->next = NULL;
+	new_prefix->iface = iface;
+
+	ospf0->pflist = add_to_list(ospf0->pflist,new_prefix);
+
+	if(iface && !ospf0->passif) {
+		add_interface(iface);
+	}
+
+}
+
+struct ifreq* find_interface(uint32_t net_addr, uint32_t mask_addr) {
+
+	struct ifreq *ifr, *found;
+	struct ifconf ifc;
+	int s, rc, i;
+	int numif;
+	uint32_t if_net;
+
+	found = NULL;
+
+	// find number of interfaces.
+	memset(&ifc,0,sizeof(ifc));
+	ifc.ifc_ifcu.ifcu_req = NULL;
+	ifc.ifc_len = 0;
+
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		replay_error("find_interface: unable to open socket");
+	}
+
+	if ((rc = ioctl(s, SIOCGIFCONF, &ifc)) < 0) {
+		replay_error("find_interface: error on 1st ioctl");
+	}
+
+	numif = ifc.ifc_len / sizeof(struct ifreq);
+	if ((ifr = malloc(ifc.ifc_len)) == NULL) {
+		replay_error("find_interface: error on malloc of ifreq");
+	}
+	ifc.ifc_ifcu.ifcu_req = ifr;
+
+	if ((rc = ioctl(s, SIOCGIFCONF, &ifc)) < 0) {
+		replay_error("find_interface: error on 2nd ioctl");
+	}
+
+	close(s);
+
+	for(i = 0; i < numif; i++) {
+
+		struct ifreq *r = &ifr[i];
+		struct sockaddr_in *sin = (struct sockaddr_in *)&r->ifr_addr;
+		if_net = get_net(sin->sin_addr->s_addr,mask_addr);
+		if (if_net == net_addr) {
+			found = r;
+		}
+	}
+	return found;
+}
+
+void add_interface(struct ifreq *iface) {
+
 }
