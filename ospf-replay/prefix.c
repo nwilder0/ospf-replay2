@@ -33,7 +33,7 @@ void add_prefix(char* full_string, u_int32_t area) {
 	inet_pton(AF_INET,net_string,&net);
 
 	tmp_item = ospf0->pflist;
-	if(!tmp_item)
+	if(tmp_item)
 		tmp_pfx = (struct ospf_prefix *)tmp_item->object;
 	while(tmp_pfx && tmp_item) {
 		if((tmp_pfx->network.s_addr == net.s_addr) && (tmp_pfx->mask.s_addr == mask.s_addr)) {
@@ -68,7 +68,7 @@ void add_prefix(char* full_string, u_int32_t area) {
 
 				duplicate = FALSE;
 				tmp_item = new_pfx->ospf_if->pflist;
-				if(!tmp_item)
+				if(tmp_item)
 					tmp_pfx = (struct ospf_prefix *)tmp_item->object;
 				while(tmp_pfx && tmp_item) {
 					if((tmp_pfx->network.s_addr == new_pfx->network.s_addr) && (tmp_pfx->mask.s_addr == new_pfx->network.s_addr)) {

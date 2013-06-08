@@ -16,14 +16,7 @@
 
 void load_defaults() {
 
-	replay_log("load_defaults: creating globals\n");
-	// malloc the two global structs
-	replay0 = (struct replay_config *) malloc(sizeof(struct replay_config));
-	ospf0 = (struct ospf *) malloc(sizeof(struct ospf));
-
-	replay_log("load_defaults: pointers to NULL\n");
-	// set the replay0 FILE pointers to null
-	replay0->errors = replay0->events = replay0->lsdb = replay0->packets = NULL;
+	replay_log("load_defaults: starting function\n");
 
 	replay_log("load_defaults: numeric members to 0\n");
 	// set replay0 numeric member variables to 0
@@ -66,7 +59,7 @@ void load_config(const char* filename) {
 	// temp variable to hold log/error strings including variables
 	char mesg[256] = "";
 	// word# holds an individual word from current line of the file, ifname = interface name when in the interface block of the config file
-	char* word, word2, word3, word4, ifname, logfilename;
+	char *word, *word2, *word3, *word4, *ifname, *logfilename;
 	// indicates which block of the config file is currently being read
 	int config_block=0;
 	// before we do anything create the global structs and make sure all their necessary members are NULL'd or zero'd out
@@ -84,7 +77,7 @@ void load_config(const char* filename) {
 		replay_log("load_config: File opened");
 		while(!feof(config)) {
 			if(fgets(line,sizeof(line),config)) {
-				word = strtok(line," \n");
+				word = strtok(line,WHITESPACE);
 				if(!strcmp("logging",word)) {
 					config_block = REPLAY_CONFIG_LOGGING;
 				}
@@ -92,7 +85,7 @@ void load_config(const char* filename) {
 					config_block = REPLAY_CONFIG_ROUTER;
 				}
 				else if(!strcmp("interface",word)) {
-					ifname = strtok(NULL," \n");
+					ifname = strtok(NULL,WHITESPACE);
 					if(ifname) {
 						config_block = REPLAY_CONFIG_IF;
 					}
@@ -103,9 +96,9 @@ void load_config(const char* filename) {
 
 					case REPLAY_CONFIG_LOGGING:
 						if(!strcmp("file",word)) {
-							word = strtok(NULL," \n");
+							word = strtok(NULL,WHITESPACE);
 							if(word) {
-								logfilename = strtok(NULL," \n");
+								logfilename = strtok(NULL,WHITESPACE);
 								if(logfilename) {
 									if(!strcmp("all",word)) {
 										replay0->packets = replay0->events = replay0->errors = fopen(logfilename,"a");
@@ -147,7 +140,7 @@ void load_config(const char* filename) {
 							}
 						}
 						else if(!strcmp("packets",word)) {
-							word = strtok(NULL," \n");
+							word = strtok(NULL,WHITESPACE);
 							while((word) || (replay0->log_packets < 255)) {
 								if(!strcmp("all",word)) {
 									replay0->log_packets = REPLAY_PACKETS_ALL;
@@ -167,7 +160,7 @@ void load_config(const char* filename) {
 								else if(!strcmp("lsack",word)) {
 									replay0->log_packets = replay0->log_packets + REPLAY_PACKETS_LSACK;
 								}
-								word = strtok(NULL," \n");
+								word = strtok(NULL,WHITESPACE);
 							}
 							if(replay0->log_packets>255) {
 								replay_error("config error: log block - packet logging set to invalid value");
@@ -175,7 +168,7 @@ void load_config(const char* filename) {
 							}
 						}
 						else if(!strcmp("events",word)) {
-							word = strtok(NULL," \n");
+							word = strtok(NULL,WHITESPACE);
 							while((word) || (replay0->log_events < 255)) {
 								if(!strcmp("all",word)) {
 									replay0->log_events = REPLAY_EVENTS_ALL;
@@ -192,7 +185,7 @@ void load_config(const char* filename) {
 								else if(!strcmp("auth",word)) {
 									replay0->log_events = replay0->log_events + REPLAY_EVENTS_AUTH;
 								}
-								word = strtok(NULL," \n");
+								word = strtok(NULL,WHITESPACE);
 							}
 							if(replay0->log_events>255) {
 								replay_error("config error: log block - event logging set to invalid value");
@@ -200,7 +193,7 @@ void load_config(const char* filename) {
 							}
 						}
 						else if(!strcmp("lsdb-history",word)) {
-							word = strtok(NULL," \n");
+							word = strtok(NULL,WHITESPACE);
 							if(word) {
 								replay0->lsdb_history = word[0] - '0';
 							}
@@ -213,8 +206,8 @@ void load_config(const char* filename) {
 
 					case REPLAY_CONFIG_ROUTER:
 						// load router configuration
-						if(!strcmp("router_id",word)) {
-							word = strtok(NULL," \n");
+						if(!strcmp("router-id",word)) {
+							word = strtok(NULL,WHITESPACE);
 							if(word) {
 								inet_pton(AF_INET,word,&ospf0->router_id);
 							}
@@ -223,7 +216,7 @@ void load_config(const char* filename) {
 							ospf0->passif = 1;
 						}
 						else if(!strcmp("no",word)) {
-							word = strtok(NULL," \n");
+							word = strtok(NULL,WHITESPACE);
 							if(word) {
 								if(!strcmp("passive-interface",word)) {
 									ospf0->passif = 0;
@@ -231,9 +224,9 @@ void load_config(const char* filename) {
 							}
 						}
 						else if(!strcmp("network",word)) {
-							word = strtok(NULL," \n");
-							word2 = strtok(NULL," \n");
-							word3 = strtok(NULL," \n");
+							word = strtok(NULL,WHITESPACE);
+							word2 = strtok(NULL,WHITESPACE);
+							word3 = strtok(NULL,WHITESPACE);
 							if(word && !strcmp("area",word2) && word3) {
 								add_prefix(word,atoi(word3));
 							}

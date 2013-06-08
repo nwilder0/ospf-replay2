@@ -90,6 +90,8 @@ struct ospf_lsdb {
 #define TRUE 1
 #define FALSE 0
 
+#define WHITESPACE " \n\t"
+
 extern struct replay_config *replay0;
 extern struct ospf *ospf0;
 

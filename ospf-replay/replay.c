@@ -37,6 +37,13 @@ int main(int argc, char *argv[])
 	// reusable boolean variable
 	int bool=0;
 
+	// allocate the two global structs
+	replay0 = (struct replay_config *) malloc(sizeof(struct replay_config));
+	ospf0 = (struct ospf *) malloc(sizeof(struct ospf));
+
+	// set the replay0 FILE pointers to null
+	replay0->errors = replay0->events = replay0->lsdb = replay0->packets = NULL;
+
 	// check for the -config parameter
 	if(argc>2) {
 		if(!strcmp(argv[1],"-config")) {
@@ -48,14 +55,16 @@ int main(int argc, char *argv[])
 	}
 	// if the -config argument was provided then load that config file, otherwise use the default "replay.config"
 	if(bool) {
+		printf("load_config\n");
 		load_config(argv[2]);
 		// reset the boolean
 		bool=0;
 	}
 	else {
-		load_config("./replay.config");
+		printf("load_config\n");
+		load_config("/tmp/replay.config");
 	}
-
+	printf("start_listening\n");
 	// start listening for OSPF packets
 	start_listening();
 

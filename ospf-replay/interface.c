@@ -85,7 +85,7 @@ struct ospf_interface* add_interface(struct ifreq *iface, u_int32_t area) {
 	strcpy(ifname,iface->ifr_ifrn.ifrn_name);
 
 	tmp_item = ospf0->iflist;
-	if(!tmp_item) {
+	if(tmp_item) {
 		tmp_if = (struct ospf_interface*)tmp_item->object;
 	}
 	while(tmp_item && tmp_if) {
