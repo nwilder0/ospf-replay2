@@ -9,9 +9,15 @@
 #define REPLAY_H_
 
 #include <stdio.h>
-#include <sys/types.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <linux/if.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include "event.h"
 #include "interface.h"
 #include "load.h"
@@ -83,5 +89,8 @@ struct ospf_lsdb {
 
 #define TRUE 1
 #define FALSE 0
+
+extern struct replay_config *replay0;
+extern struct ospf *ospf0;
 
 #endif /* REPLAY_H_ */

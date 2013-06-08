@@ -4,6 +4,17 @@
  *  Created on: May 27, 2013
  *      Author: nathan
  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <linux/if.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <math.h>
 
 #include "event.h"
 #include "interface.h"
@@ -13,8 +24,6 @@
 #include "prefix.h"
 #include "utility.h"
 #include "replay.h"
-
-extern struct replay_config *replay0;
 
 void replay_error(char* mesg) {
 	if(replay0->errors) {
