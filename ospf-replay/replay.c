@@ -23,6 +23,8 @@ void start_listening();
 void load_defaults();
 void load_config(const char*);
 void process_packet(int);
+void add_prefix();
+void add_interface(struct ifreq*);
 
 // holds program settings and log files
 struct replay_config *replay0;
@@ -376,13 +378,14 @@ void process_packet(int socket) {
 
 }
 
-void add_prefix(char* full_string, int area) {
+void add_prefix(char* full_string, u_int32_t area) {
 
 	char net_string[16],mask_string[16];
 	struct ifreq *iface;
 	struct ifconf ifc;
 	struct in_addr net, mask;
-	struct ospf_prefix *new_prefix;
+	struct ospf_prefix *new_pfx, *tmp_pfx;
+	int duplicate = FALSE;
 
 	// split up the network and mask
 	net_string = strtok(full_string,"/");
@@ -392,21 +395,50 @@ void add_prefix(char* full_string, int area) {
 
 	inet_pton(AF_INET,net_string,net.s_addr);
 
-	iface = find_interface(net.s_addr,mask.s_addr);
-
-	new_prefix = (struct ospf_prefix *) malloc(sizeof(struct ospf_prefix));
-
-	new_prefix->mask.s_addr = mask.s_addr;
-	new_prefix->network.s_addr = net.s_addr;
-	new_prefix->next = NULL;
-	new_prefix->iface = iface;
-
-	ospf0->pflist = add_to_list(ospf0->pflist,new_prefix);
-
-	if(iface && !ospf0->passif) {
-		add_interface(iface);
+	tmp_pfx = ospf0->pflist;
+	while(tmp_pfx) {
+		if((tmp_pfx->network.s_addr == net.s_addr) && (tmp_pfx->mask->s_addr == mask.s_addr)) {
+			duplicate = TRUE;
+			tmp_pfx = NULL;
+		}
+		else {
+			tmp_pfx = tmp_pfx->next;
+		}
 	}
+	if(!duplicate) {
+		iface = find_interface(net.s_addr,mask.s_addr);
 
+		new_pfx = (struct ospf_prefix *) malloc(sizeof(struct ospf_prefix));
+
+		new_pfx->mask.s_addr = mask.s_addr;
+		new_pfx->network.s_addr = net.s_addr;
+		new_pfx->next = NULL;
+		new_pfx->iface = iface;
+		new_pfx->ospf_if = NULL;
+
+		ospf0->pflist = add_to_list(ospf0->pflist,new_pfx);
+
+		if(iface && !ospf0->passif) {
+			new_pfx->ospf_if = add_interface(iface, area);
+			if(new_pfx->ospf_if) {
+
+				duplicate = FALSE;
+				tmp_pfx = new_pfx->ospf_if->pflist;
+				while(tmp_pfx) {
+					if((tmp_pfx->network->s_addr == new_pfx->network->s_addr) && (tmp_pfx->mask->s_addr == new_pfx->network->s_addr)) {
+						duplicate = FALSE;
+						tmp_pfx = NULL;
+					}
+					else {
+						tmp_pfx = tmp_pfx->next;
+					}
+				}
+				if(!duplicate) {
+					new_pfx->ospf_if->pflist = add_to_list(new_pfx->ospf_if->pflist,new_pfx);
+				}
+			}
+		}
+	}
 }
 
 struct ifreq* find_interface(uint32_t net_addr, uint32_t mask_addr) {
@@ -456,6 +488,73 @@ struct ifreq* find_interface(uint32_t net_addr, uint32_t mask_addr) {
 	return found;
 }
 
-void add_interface(struct ifreq *iface) {
+struct ospf_interface* add_interface(struct ifreq *iface, u_int32_t area) {
+
+	struct ospf_interface *new_if, *tmp_if;
+	struct ip_mreq mreq;
+	int ospf_socket;
+	struct sockaddr_in *sin = (struct sockaddr_in *)&iface->ifr_addr;
+	char ifname[16];
+	int duplicate=FALSE;
+
+	strcpy(ifname,iface->ifr_ifrn->ifrn_name);
+
+	tmp_if = ospf0->iflist;
+	while(tmp_if) {
+		if(!strcmp(ifname,tmp_if->iface->ifr_ifrn->ifrn_name)) {
+			duplicate = TRUE;
+			new_if = tmp_if;
+			tmp_if = NULL;
+		}
+		else {
+			tmp_if = tmp_if->next;
+		}
+	}
+
+	if(!duplicate) {
+		new_if = (struct ospf_interface *) malloc(sizeof(struct ospf_interface));
+
+		new_if->area_id = area;
+		new_if->iface = iface;
+		new_if->next = NULL;
+		new_if->pflist = NULL;
+
+		ospf0->iflist = add_to_list(ospf0->iflist,new_if);
+
+		ospf_socket = socket(AF_INET,SOCK_RAW,89);
+
+		if(ospf_socket<0)
+			replay_error("add_interface: Error opening socket");
+		else
+			replay_log("add_interface: socket opened");
+
+		if (setsockopt(ospf_socket, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof(iface)) < 0)
+			replay_error("add_interface: ERROR on interface binding");
+		else
+			replay_log("add_interface: socket bound to interface");
+
+		mreq.imr_interface = sin->sin_addr->s_addr;
+		inet_pton(AF_INET,OSPF_MULTICAST_ALLROUTERS,&mreq.imr_multiaddr);
+
+		if(setsockopt(ospf_socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq))<0)
+			replay_error("add_interface: ERROR on multicast join");
+		else
+			replay_log("add_interface: multicast group added");
+
+		FD_SET(ospf_socket, ospf0->ospf_sockets_in);
+		FD_SET(ospf_socket, ospf0->ospf_sockets_out);
+		FD_SET(ospf_socket, ospf0->ospf_sockets_err);
+	}
+	return new_if;
+
+}
+
+void remove_inteface(struct ospf_interface *ospf_if) {
+
+
+}
+
+void remove_prefix(struct ospf_prefix *ospf_pfx) {
+
 
 }

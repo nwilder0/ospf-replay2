@@ -97,6 +97,7 @@ struct ospf_prefix {
 	struct ospf_prefix *next;
 	struct in_addr network, mask;
 	struct ifreq *iface;
+	struct ospf_interface *ospf_if;
 };
 
 struct ospf_neighbor {
@@ -107,6 +108,8 @@ struct ospf_neighbor {
 struct ospf_interface {
 	struct ospf_interface *next;
 	struct ifreq *iface;
+	u_int32_t area_id;
+	struct ospf_prefix *pflist;
 };
 
 struct ospf_lsdb {
@@ -147,5 +150,9 @@ struct ospf_hello
 };
 
 #define OSPFHDR_LEN 24
+#define OSPF_MULTICAST_ALLROUTERS "224.0.0.5"
+
+#define TRUE 1
+#define FALSE 0
 
 #endif /* REPLAY_H_ */
