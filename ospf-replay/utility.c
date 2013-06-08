@@ -5,8 +5,14 @@
  *      Author: nathan
  */
 
-#include "replay.h"
+#include "event.h"
+#include "interface.h"
+#include "load.h"
+#include "neighbor.h"
+#include "packet.h"
+#include "prefix.h"
 #include "utility.h"
+#include "replay.h"
 
 extern struct replay_config *replay0;
 
