@@ -48,7 +48,7 @@ struct replay_config {
 struct ospf {
 
 	// Interfaces running OSPF
-	struct ospf_interface *iflist;
+	struct replay_list *iflist;
 
 	// Router ID
 	struct in_addr router_id;
@@ -57,10 +57,13 @@ struct ospf {
 	struct ospf_lsdb *lsdb;
 
 	// OSPF local prefix list
-	struct ospf_prefix *pflist;
+	struct replay_list *pflist;
 
 	// OSPF neighbors
-	struct ospf_neighbor *nbrlist;
+	struct replay_list *nbrlist;
+
+	// OSPF events awaiting execution
+	struct replay_list *eventlist;
 
 	// OSPF protocol sockets - listening set
 	fd_set ospf_sockets_in;
@@ -94,23 +97,33 @@ struct ospf {
 
 
 struct ospf_prefix {
-	struct ospf_prefix *next;
 	struct in_addr network, mask;
 	struct ifreq *iface;
 	struct ospf_interface *ospf_if;
 };
 
 struct ospf_neighbor {
-	struct ospf_neighbor *next;
-
+	struct in_addr router_id, ip;
+	struct ospf_interface *ospf_if;
+	u_int8_t state;
 };
 
 struct ospf_interface {
-	struct ospf_interface *next;
 	struct ifreq *iface;
 	u_int32_t area_id;
-	struct ospf_prefix *pflist;
+	struct replay_list *pflist;
+	struct replay_list *nbrlist;
+	int ospf_socket;
 };
+
+struct ospf_event {
+	struct replay_object *object;
+	struct timespec ts;
+	u_int8_t type;
+};
+
+#define OSPF_EVENT_HELLO_BROADCAST 0
+
 
 struct ospf_lsdb {
 

@@ -8,9 +8,15 @@
 #ifndef UTILITY_H_
 #define UTILITY_H_
 
+struct replay_object {
+
+};
+
 struct replay_list {
 	struct replay_list *next;
+	struct replay_struct *object;
 };
+
 
 void replay_error(char*);
 

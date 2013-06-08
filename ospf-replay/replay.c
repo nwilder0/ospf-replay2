@@ -23,8 +23,11 @@ void start_listening();
 void load_defaults();
 void load_config(const char*);
 void process_packet(int);
-void add_prefix();
-void add_interface(struct ifreq*);
+void add_prefix(char*,u_int32_t);
+struct ospf_interface* add_interface(struct ifreq*);
+void remove_interface(struct ospf_interface*);
+void remove_prefix(struct ospf_prefix*);
+void check_events();
 
 // holds program settings and log files
 struct replay_config *replay0;
@@ -88,6 +91,7 @@ void load_defaults() {
 	ospf0->retransmit_interval = OSPF_DEFAULT_RETRANSMIT;
 	ospf0->transmit_delay = OSPF_DEFAULT_TRANSMITDELAY;
 
+	ospf0->eventlist = ospf0->iflist = ospf0->nbrlist = ospf0->pflist = ospf0->lsdb = NULL;
 
 	replay_log("load_defaults: Clearing out the select() file/stream sets\n");
 	// clear out the select() file/stream descriptor sets
@@ -335,7 +339,7 @@ void start_listening() {
 	printf("\n>");
 	fflush(stdout);
 	max_socket = ospf0->max_socket;
-	tv.tv_sec = 2;
+	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 
 	bool = 1;
@@ -344,7 +348,7 @@ void start_listening() {
 		sockets_in = ospf0->ospf_sockets_in;
 		sockets_out = ospf0->ospf_sockets_out;
 		sockets_err = ospf0->ospf_sockets_err;
-
+		check_events();
 		if(select(max_socket+1,&sockets_in,&sockets_out,&sockets_err,&tv)==-1) replay_error("socket error: unable to run select()");
 
 
@@ -374,6 +378,10 @@ void start_listening() {
 	}
 }
 
+void check_events() {
+
+}
+
 void process_packet(int socket) {
 
 }
@@ -385,6 +393,7 @@ void add_prefix(char* full_string, u_int32_t area) {
 	struct ifconf ifc;
 	struct in_addr net, mask;
 	struct ospf_prefix *new_pfx, *tmp_pfx;
+	struct replay_list *new_item, *tmp_item;
 	int duplicate = FALSE;
 
 	// split up the network and mask
@@ -395,46 +404,62 @@ void add_prefix(char* full_string, u_int32_t area) {
 
 	inet_pton(AF_INET,net_string,net.s_addr);
 
-	tmp_pfx = ospf0->pflist;
-	while(tmp_pfx) {
+	tmp_item = ospf0->pflist;
+	if(!tmp_item)
+		tmp_pfx = (struct ospf_prefix *)tmp_item->object;
+	while(tmp_pfx && tmp_item) {
 		if((tmp_pfx->network.s_addr == net.s_addr) && (tmp_pfx->mask->s_addr == mask.s_addr)) {
 			duplicate = TRUE;
-			tmp_pfx = NULL;
+			tmp_item = NULL;
 		}
 		else {
-			tmp_pfx = tmp_pfx->next;
+			tmp_item = tmp_item->next;
+			if(!tmp_item)
+				tmp_pfx = (struct ospf_prefix *)tmp_item->object;
 		}
 	}
 	if(!duplicate) {
 		iface = find_interface(net.s_addr,mask.s_addr);
 
 		new_pfx = (struct ospf_prefix *) malloc(sizeof(struct ospf_prefix));
+		new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
 
 		new_pfx->mask.s_addr = mask.s_addr;
 		new_pfx->network.s_addr = net.s_addr;
-		new_pfx->next = NULL;
 		new_pfx->iface = iface;
 		new_pfx->ospf_if = NULL;
 
-		ospf0->pflist = add_to_list(ospf0->pflist,new_pfx);
+		new_item->next = NULL;
+		new_item->object = (struct replay_object *)new_pfx;
+
+		ospf0->pflist = add_to_list(ospf0->pflist,new_item);
 
 		if(iface && !ospf0->passif) {
 			new_pfx->ospf_if = add_interface(iface, area);
 			if(new_pfx->ospf_if) {
 
 				duplicate = FALSE;
-				tmp_pfx = new_pfx->ospf_if->pflist;
-				while(tmp_pfx) {
+				tmp_item = new_pfx->ospf_if->pflist;
+				if(!tmp_item)
+					tmp_pfx = (struct ospf_prefix *)tmp_item->object;
+				while(tmp_pfx && tmp_item) {
 					if((tmp_pfx->network->s_addr == new_pfx->network->s_addr) && (tmp_pfx->mask->s_addr == new_pfx->network->s_addr)) {
-						duplicate = FALSE;
+						duplicate = TRUE;
+						tmp_item = NULL;
 						tmp_pfx = NULL;
 					}
 					else {
-						tmp_pfx = tmp_pfx->next;
+						tmp_item = tmp_item->next;
+						if(!tmp_item) {
+							tmp_pfx = (struct ospf_prefix *)tmp_item->object;
+						}
 					}
 				}
 				if(!duplicate) {
-					new_pfx->ospf_if->pflist = add_to_list(new_pfx->ospf_if->pflist,new_pfx);
+					new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
+					new_item->next = NULL;
+					new_item->object = (struct replay_object *)new_pfx;
+					new_pfx->ospf_if->pflist = add_to_list(new_pfx->ospf_if->pflist,new_item);
 				}
 			}
 		}
@@ -491,6 +516,7 @@ struct ifreq* find_interface(uint32_t net_addr, uint32_t mask_addr) {
 struct ospf_interface* add_interface(struct ifreq *iface, u_int32_t area) {
 
 	struct ospf_interface *new_if, *tmp_if;
+	struct replay_list *tmp_item, *new_item;
 	struct ip_mreq mreq;
 	int ospf_socket;
 	struct sockaddr_in *sin = (struct sockaddr_in *)&iface->ifr_addr;
@@ -499,27 +525,37 @@ struct ospf_interface* add_interface(struct ifreq *iface, u_int32_t area) {
 
 	strcpy(ifname,iface->ifr_ifrn->ifrn_name);
 
-	tmp_if = ospf0->iflist;
-	while(tmp_if) {
+	tmp_item = ospf0->iflist;
+	if(!tmp_item) {
+		tmp_if = (struct ospf_interface*)tmp_item->object;
+	}
+	while(tmp_item && tmp_if) {
 		if(!strcmp(ifname,tmp_if->iface->ifr_ifrn->ifrn_name)) {
 			duplicate = TRUE;
 			new_if = tmp_if;
+			tmp_item = NULL;
 			tmp_if = NULL;
 		}
 		else {
-			tmp_if = tmp_if->next;
+			tmp_item = tmp_item->next;
+			if(!tmp_item)
+				tmp_if = (struct ospf_interface*)tmp_item->object;
 		}
 	}
 
 	if(!duplicate) {
 		new_if = (struct ospf_interface *) malloc(sizeof(struct ospf_interface));
+		new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
 
 		new_if->area_id = area;
 		new_if->iface = iface;
-		new_if->next = NULL;
 		new_if->pflist = NULL;
+		new_if->nbrlist = NULL;
 
-		ospf0->iflist = add_to_list(ospf0->iflist,new_if);
+		new_item->next = NULL;
+		new_item->object = (struct replay_object *)new_if;
+
+		ospf0->iflist = add_to_list(ospf0->iflist,new_item);
 
 		ospf_socket = socket(AF_INET,SOCK_RAW,89);
 
@@ -549,8 +585,64 @@ struct ospf_interface* add_interface(struct ifreq *iface, u_int32_t area) {
 
 }
 
-void remove_inteface(struct ospf_interface *ospf_if) {
+void remove_interface(struct ospf_interface *ospf_if) {
+	struct ospf_prefix *tmp_pfx;
+	struct replay_list *tmp_item,*next;
+	struct ospf_interface *tmp_if;
+	struct ospf_neighbor *tmp_nbr;
+	struct ospf_event *tmp_event;
 
+	if(ospf_if) {
+		FD_CLR(ospf_if->ospf_socket,ospf0->ospf_sockets_in);
+		FD_CLR(ospf_if->ospf_socket,ospf0->ospf_sockets_out);
+		FD_CLR(ospf_if->ospf_socket,ospf0->ospf_sockets_err);
+
+		tmp_item = ospf0->eventlist;
+		while(tmp_item) {
+			tmp_event = (struct ospf_event *)tmp_item->object;
+			if(tmp_event->object == ospf_if) {
+				ospf0->eventlist = remove_from_list(ospf0->eventlist,tmp_item);
+				free(tmp_event);
+			}
+		}
+		tmp_item = ospf_if->pflist;
+		while(tmp_item) {
+			next = tmp_item->next;
+			tmp_pfx = (struct ospf_prefix *)tmp_item->object;
+			tmp_pfx->ospf_if = NULL;
+			free(tmp_item);
+			tmp_item = next;
+		}
+		tmp_item = ospf_if->nbrlist;
+		while(tmp_item) {
+			next = tmp_item->next;
+			tmp_nbr = (struct ospf_neighbor *)tmp_item->object;
+			remove_neighbor(tmp_nbr);
+			free(tmp_item);
+			tmp_item = next;
+		}
+
+		tmp_item = ospf0->iflist;
+		while(tmp_item) {
+			tmp_if = (struct ospf_interface *)tmp_item->object;
+			if(tmp_if==ospf_if) {
+				ospf0->iflist = remove_from_list(ospf0->iflist,tmp_item);
+			}
+		}
+		if(ospf_if->ospf_socket)
+			close(ospf_if->ospf_socket);
+
+		free(ospf_if);
+	}
+	else {
+		tmp_item = ospf0->iflist;
+		while(tmp_item) {
+			next = tmp_item;
+			remove_interface(tmp_item);
+			tmp_item = next;
+		}
+		ospf0->iflist = NULL;
+	}
 
 }
 
@@ -558,3 +650,4 @@ void remove_prefix(struct ospf_prefix *ospf_pfx) {
 
 
 }
+

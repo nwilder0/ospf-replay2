@@ -78,9 +78,11 @@ struct replay_list* remove_from_list(struct replay_list *list, struct replay_lis
 			}
 			if(prev) {
 				prev->next = curr->next;
+				free(curr);
 				return list;
 			}
 			else {
+				free(curr);
 				return curr->next;
 			}
 			return list;
