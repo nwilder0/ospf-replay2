@@ -32,6 +32,16 @@ struct ospf_neighbor {
 	u_int8_t state;
 };
 
+#define OSPF_NBRSTATE_DOWN 		0
+#define OSPF_NBRSTATE_ATTEMPT 	1
+#define OSPF_NBRSTATE_INIT 		2
+#define OSPF_NBRSTATE_2WAY 		3
+#define OSPF_NBRSTATE_EXSTART 	4
+#define OSPF_NBRSTATE_EXCHANGE 	5
+#define OSPF_NBRSTATE_LOADING 	6
+#define OSPF_NBRSTATE_FULL 		7
+
+
 struct ospf_neighbor* add_neighbor(u_int32_t,u_int32_t,struct ospf_interface*);
 void remove_neighbor(struct ospf_neighbor*);
 

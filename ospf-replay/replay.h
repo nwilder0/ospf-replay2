@@ -25,11 +25,13 @@
 #include "packet.h"
 #include "prefix.h"
 #include "utility.h"
+#include "lsa.h"
 
 struct ospf {
 
 	// Interfaces running OSPF
 	struct replay_list *iflist;
+	int ifcount;
 
 	// Router ID
 	struct in_addr router_id;
@@ -37,11 +39,17 @@ struct ospf {
 	// link state database
 	struct ospf_lsdb *lsdb;
 
+	// Routing table (outcome of SPF)
+	struct ospf_route *route_table;
+
 	// OSPF local prefix list
 	struct replay_list *pflist;
+	int pfxcount;
+	int active_pfxcount;
 
 	// OSPF neighbors
 	struct replay_list *nbrlist;
+	int nbrcount;
 
 	// OSPF events awaiting execution
 	struct replay_list *eventlist;
@@ -67,6 +75,9 @@ struct ospf {
 	// passive interface default
 	u_int8_t passif;
 
+	// refence bandwidth
+	unsigned long ref_bandwdith;
+
 };
 
 #define OSPF_DEFAULT_PASSIF 0
@@ -76,12 +87,36 @@ struct ospf {
 #define OSPF_DEFAULT_RETRANSMIT 0
 #define OSPF_DEFAULT_COST 10000
 
-
+#define OSPF_DEFAULT_REFERENCE_BANDWIDTH 100UL
 
 
 
 struct ospf_lsdb {
+	struct replay_list *lsa_list[9];
+	unsigned long count;
+	unsigned int checksum;
+	struct router_lsa *this_rtr;
+};
 
+struct route_table {
+	struct replay_list *route_list;
+	struct route_array *by_mask[32];
+	u_int32_t count;
+};
+
+struct route_array {
+	struct route_entry *(*route_list)[];
+};
+
+struct route_entry {
+
+	u_char src_type;
+	struct in_addr net;
+	struct in_addr mask;
+	u_int8_t admin_dist;
+	struct in_addr via;
+	struct ifreq *iface;
+	struct timeval tv;
 
 };
 

@@ -24,16 +24,16 @@
 #include "utility.h"
 #include "replay.h"
 
+struct replay_list* load_interfaces() {
 
-struct ifreq* find_interface(uint32_t net_addr, uint32_t mask_addr) {
-
-	struct ifreq *ifr, *found;
+	struct replay_interface *iface;
+	struct replay_list *new_item, *prev_item;
+	struct ifreq *ifr;
 	struct ifconf ifc;
+	struct ethtool_cmd cmd;
 	int s, rc, i;
 	int numif;
 	uint32_t if_net;
-
-	found = NULL;
 
 	// find number of interfaces.
 	memset(&ifc,0,sizeof(ifc));
@@ -58,38 +58,90 @@ struct ifreq* find_interface(uint32_t net_addr, uint32_t mask_addr) {
 		replay_error("find_interface: error on 2nd ioctl");
 	}
 
-	close(s);
+	prev_item = NULL;
 
 	for(i = 0; i < numif; i++) {
 
 		struct ifreq *r = &ifr[i];
 		struct sockaddr_in *sin = (struct sockaddr_in *)&r->ifr_addr;
-		if_net = get_net(sin->sin_addr.s_addr,mask_addr);
-		if (if_net == net_addr) {
-			found = r;
+		struct sockaddr_in *smask = (struct sockaddr_in *)&r->ifr_netmask;
+
+		iface = (struct replay_interface *) malloc(sizeof(struct replay_interface));
+		new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
+
+		iface->index = i;
+		iface->ip.s_addr = sin->sin_addr.s_addr;
+		iface->mask.s_addr = smask->sin_addr.s_addr;
+		iface->mtu = r->ifr_mtu;
+		strcpy(iface->name,r->ifr_name);
+
+		new_item->next = prev_item;
+		new_item->object = (struct replay_object *) iface;
+
+		/* Interface flags. */
+		if (ioctl(s, SIOCGIFFLAGS, ifr) == -1)
+			iface->flags = 0;
+		else
+			iface->flags = ifr->ifr_flags;
+
+		ifr->ifr_data = (void *)&cmd;
+		cmd.cmd = ETHTOOL_GSET; /* "Get settings" */
+		if (ioctl(s, SIOCETHTOOL, ifr) == -1) {
+			/* Unknown */
+			iface->speed = -1L;
+			iface->duplex = DUPLEX_UNKNOWN;
+		} else {
+			iface->speed = ethtool_cmd_speed(&cmd);
+		    iface->duplex = cmd.duplex;
 		}
+		prev_item = new_item;
+	}
+
+	close(s);
+
+	return prev_item;
+}
+
+struct replay_interface* find_interface(uint32_t net_addr, uint32_t mask_addr) {
+
+	struct replay_interface *search_if, *found;
+	struct replay_list *search_item;
+	uint32_t if_net;
+
+	search_item = replay0->iflist;
+	found = NULL;
+
+	while(search_item) {
+		if(search_item->object) {
+			search_if = (struct replay_interface *)search_item->object;
+			if_net = get_net(search_if->ip.s_addr,search_if->mask.s_addr);
+			if (if_net == net_addr && mask_addr == search_if->mask.s_addr) {
+				found = search_if;
+			}
+		}
+		search_item = search_item->next;
 	}
 	return found;
 }
 
-struct ospf_interface* add_interface(struct ifreq *iface, u_int32_t area) {
+struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t area) {
 
 	struct ospf_interface *new_if, *tmp_if;
 	struct replay_list *tmp_item, *new_item;
 	struct ip_mreq mreq;
+	struct sockaddr_in *sin = (struct sockaddr_in *)&iface->ifr->ifr_addr;
 	int ospf_socket;
-	struct sockaddr_in *sin = (struct sockaddr_in *)&iface->ifr_addr;
-	char ifname[16];
+	char ifname[256];
 	int duplicate=FALSE;
 
-	strcpy(ifname,iface->ifr_ifrn.ifrn_name);
+	strcpy(ifname,iface->name);
 
 	tmp_item = ospf0->iflist;
 	if(tmp_item) {
 		tmp_if = (struct ospf_interface*)tmp_item->object;
 	}
 	while(tmp_item && tmp_if) {
-		if(!strcmp(ifname,tmp_if->iface->ifr_ifrn.ifrn_name)) {
+		if(!strcmp(ifname,tmp_if->iface->name)) {
 			duplicate = TRUE;
 			new_if = tmp_if;
 			tmp_item = NULL;
@@ -110,6 +162,7 @@ struct ospf_interface* add_interface(struct ifreq *iface, u_int32_t area) {
 		new_if->iface = iface;
 		new_if->pflist = NULL;
 		new_if->nbrlist = NULL;
+		new_if->metric = ospf0->ref_bandwdith / iface->speed;
 
 		new_item->next = NULL;
 		new_item->object = (struct replay_object *)new_if;
@@ -123,7 +176,7 @@ struct ospf_interface* add_interface(struct ifreq *iface, u_int32_t area) {
 		else
 			replay_log("add_interface: socket opened");
 
-		if (setsockopt(ospf_socket, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof(iface)) < 0)
+		if (setsockopt(ospf_socket, SOL_SOCKET, SO_BINDTODEVICE, &iface->ifr, sizeof(iface->ifr)) < 0)
 			replay_error("add_interface: ERROR on interface binding");
 		else
 			replay_log("add_interface: socket bound to interface");
@@ -204,4 +257,13 @@ void remove_interface(struct ospf_interface *ospf_if) {
 		ospf0->iflist = NULL;
 	}
 
+}
+
+u_int16_t get_if_metric(struct ospf_interface *ospf_if) {
+	if(ospf_if) {
+		return ospf_if->metric;
+	}
+	else {
+		return 1;
+	}
 }

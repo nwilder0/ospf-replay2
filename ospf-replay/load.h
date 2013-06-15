@@ -54,6 +54,7 @@ struct replay_config {
 	u_int8_t log_packets;
 	u_int8_t log_events;
 	u_int8_t lsdb_history;
+	struct replay_list *iflist;
 
 };
 

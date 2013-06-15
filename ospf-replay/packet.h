@@ -23,6 +23,7 @@
 #include "neighbor.h"
 #include "prefix.h"
 #include "utility.h"
+#include "lsa.h"
 #include "replay.h"
 
 struct ospfhdr {
@@ -57,7 +58,32 @@ struct ospf_hello
   struct in_addr neighbors[1];
 };
 
+// DBDESC struct
+// LSR struct
+// LSU struct
+// LSACK struct
+
 #define OSPFHDR_LEN 24
+
+/* OSPF Database Description body format. */
+struct ospf_dbdesc
+{
+  u_int16_t mtu;
+  u_char options;
+  u_char flags;
+  u_int32_t dd_seqnum;
+};
+
+struct ospf_lsr {
+	u_int32_t lsa_type;
+	u_int32_t lsa_id;
+	u_int32_t advert_rtr;
+};
+
+struct ospf_lsu {
+	u_int32_t lsa_num;
+};
+
 
 void process_packet(int);
 

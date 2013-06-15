@@ -24,6 +24,7 @@
 #include "packet.h"
 #include "prefix.h"
 #include "replay.h"
+#include "checksum.h"
 
 struct replay_object {
 

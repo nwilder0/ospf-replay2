@@ -18,6 +18,8 @@ void load_defaults() {
 
 	replay_log("load_defaults: starting function\n");
 
+	replay0->iflist = load_interfaces();
+
 	replay_log("load_defaults: numeric members to 0\n");
 	// set replay0 numeric member variables to 0
 	replay0->log_events = replay0->log_packets = replay0->lsdb_history = 0;
@@ -33,6 +35,7 @@ void load_defaults() {
 	ospf0->hello_interval = OSPF_DEFAULT_HELLO;
 	ospf0->retransmit_interval = OSPF_DEFAULT_RETRANSMIT;
 	ospf0->transmit_delay = OSPF_DEFAULT_TRANSMITDELAY;
+	ospf0->ref_bandwdith = OSPF_DEFAULT_REFERENCE_BANDWIDTH;
 
 	ospf0->eventlist = ospf0->iflist = ospf0->nbrlist = ospf0->pflist = ospf0->lsdb = NULL;
 
