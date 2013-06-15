@@ -87,4 +87,16 @@ struct ospf_lsu {
 
 void process_packet(int);
 
+void process_hello();
+void process_dbdesc();
+void process_lsu();
+void process_lsr();
+void process_lsack();
+void send_hello();
+void send_dbdesc();
+void send_lsu();
+void send_lsr();
+void send_lsack();
+
+
 #endif /* PACKET_H_ */

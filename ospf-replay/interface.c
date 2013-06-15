@@ -192,6 +192,8 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		FD_SET(ospf_socket, &ospf0->ospf_sockets_in);
 		FD_SET(ospf_socket, &ospf0->ospf_sockets_out);
 		FD_SET(ospf_socket, &ospf0->ospf_sockets_err);
+
+		ospf0->ifcount++;
 	}
 	return new_if;
 
@@ -245,6 +247,7 @@ void remove_interface(struct ospf_interface *ospf_if) {
 			close(ospf_if->ospf_socket);
 
 		free(ospf_if);
+		ospf0->ifcount--;
 	}
 	else {
 		tmp_item = ospf0->iflist;

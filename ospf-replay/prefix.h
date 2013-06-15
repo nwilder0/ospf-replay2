@@ -27,7 +27,7 @@
 
 struct ospf_prefix {
 	struct in_addr network, mask;
-	struct ifreq *iface;
+	struct replay_interface *iface;
 	struct ospf_interface *ospf_if;
 };
 

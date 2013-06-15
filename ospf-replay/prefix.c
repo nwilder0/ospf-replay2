@@ -18,7 +18,7 @@
 void add_prefix(char* full_string, u_int32_t area) {
 
 	char net_string[16],mask_string[16];
-	struct ifreq *iface;
+	struct replay_interface *iface;
 	struct in_addr net, mask;
 	struct ospf_prefix *new_pfx, *tmp_pfx;
 	struct replay_list *new_item, *tmp_item;
@@ -61,11 +61,13 @@ void add_prefix(char* full_string, u_int32_t area) {
 		new_item->object = (struct replay_object *)new_pfx;
 
 		ospf0->pflist = add_to_list(ospf0->pflist,new_item);
+		ospf0->pfxcount++;
 
 		if(iface && !ospf0->passif) {
 			new_pfx->ospf_if = add_interface(iface, area);
 			if(new_pfx->ospf_if) {
 
+				ospf0->active_pfxcount++;
 				duplicate = FALSE;
 				tmp_item = new_pfx->ospf_if->pflist;
 				if(tmp_item)
@@ -105,6 +107,7 @@ void remove_prefix(struct ospf_prefix *ospf_pfx) {
 		tmp_pfx = (struct ospf_prefix *)tmp_item->object;
 		if(tmp_pfx==ospf_pfx) {
 			ospf0->pflist = remove_from_list(ospf0->pflist,tmp_item);
+			ospf0->pfxcount--;
 			tmp_item = NULL;
 		}
 		else {
@@ -112,6 +115,7 @@ void remove_prefix(struct ospf_prefix *ospf_pfx) {
 		}
 	}
 	if(ospf_pfx->ospf_if) {
+		ospf0->active_pfxcount--;
 		tmp_item = ospf_pfx->ospf_if->pflist;
 		while(tmp_item) {
 			tmp_pfx = (struct ospf_prefix *)tmp_item->object;

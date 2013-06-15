@@ -36,6 +36,7 @@ void load_defaults() {
 	ospf0->retransmit_interval = OSPF_DEFAULT_RETRANSMIT;
 	ospf0->transmit_delay = OSPF_DEFAULT_TRANSMITDELAY;
 	ospf0->ref_bandwdith = OSPF_DEFAULT_REFERENCE_BANDWIDTH;
+	ospf0->active_pfxcount = ospf0->ifcount = ospf0->nbrcount = ospf0->pfxcount = 0;
 
 	ospf0->eventlist = ospf0->iflist = ospf0->nbrlist = ospf0->pflist = ospf0->lsdb = NULL;
 
