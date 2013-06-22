@@ -80,35 +80,39 @@ struct replay_list* add_to_list(struct replay_list *list, struct replay_list *ne
 	}
 }
 
+struct replay_list* find_in_list(struct replay_list *list, struct replay_object *object) {
+	struct replay_list *curr, *found;
+	found = NULL;
+	curr = list;
+	if(object && curr) {
+		while(curr->next && (curr->object != object)) curr = curr->next;
+		if(curr->object == object) found = curr;
+	}
+	return found;
+}
+
 struct replay_list* remove_from_list(struct replay_list *list, struct replay_list *remove) {
 
 	struct replay_list *curr, *prev;
 	curr = list;
 	prev = NULL;
-	if(remove) {
-		if(list) {
-			while(curr != remove) {
-				prev = curr;
-				curr = curr->next;
-			}
+	if(remove && list) {
+		while(curr && (curr != remove)) {
+			prev = curr;
+			curr = curr->next;
+		}
+		if(curr==remove) {
 			if(prev) {
 				prev->next = curr->next;
 				free(curr);
-				return list;
 			}
 			else {
+				list = curr->next;
 				free(curr);
-				return curr->next;
 			}
-			return list;
-		}
-		else {
-			return list;
 		}
 	}
-	else {
-		return list;
-	}
+	return list;
 }
 
 uint32_t get_net(uint32_t addr, uint32_t mask) {
@@ -143,5 +147,64 @@ int mask2bits(uint32_t mask) {
 	}
 
 	return bits;
+}
+
+struct replay_nlist* add_to_nlist(struct replay_nlist *list,struct replay_nlist *new) {
+
+	struct replay_nlist *curr, *prev;
+	curr = list;
+	prev = NULL;
+	if(new) {
+		if(list) {
+			while(curr && (new->key > curr->key)) {
+				prev = curr;
+				curr = curr->next;
+			}
+			prev->next = new;
+			new->next = curr;
+		}
+		else {
+			list = new;
+		}
+	}
+	return list;
+
+}
+
+struct replay_nlist* remove_from_nlist(struct replay_nlist *list,struct replay_nlist *remove) {
+
+	struct replay_nlist *curr, *prev;
+	curr = list;
+	prev = NULL;
+
+	if(remove && list) {
+		while((curr) && (curr!=remove)) {
+			prev = curr;
+			curr = curr->next;
+		}
+		if(curr == remove) {
+			if(prev) {
+				prev->next = curr->next;
+				free(curr);
+			}
+			else {
+				list = curr->next;
+				free(curr);
+			}
+		}
+	}
+	return list;
+}
+
+struct replay_nlist* find_in_nlist(struct replay_nlist *list,struct replay_object *object) {
+
+		struct replay_nlist *curr, *found;
+		found = NULL;
+		curr = list;
+		if(object && curr) {
+			while(curr->next && (curr->object != object)) curr = curr->next;
+			if(curr->object == object) found = curr;
+		}
+		return found;
 }
 

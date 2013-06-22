@@ -28,14 +28,16 @@
 
 struct ospf_event {
 	struct replay_object *object;
-	struct timespec ts;
+	struct timeval tv;
 	u_int8_t type;
 };
 
 #define OSPF_EVENT_HELLO_BROADCAST 0
+#define OSPF_EVENT_LSA_AGING 1
 
 void check_events();
 void add_event(struct replay_object*,u_int8_t);
 void remove_event(struct ospf_event*);
+struct ospf_event* find_event(struct replay_object*,u_int8_t);
 
 #endif /* EVENT_H_ */

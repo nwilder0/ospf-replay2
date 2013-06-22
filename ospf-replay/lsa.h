@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <linux/if.h>
@@ -80,7 +81,7 @@ struct ospf_lsa
 #define OSPF_LSA_IN_MAXAGE	  0x80
 
   /* LSA data. */
-  struct lsa_header *data;
+  struct lsa_header *header;
 
   /* Received time stamp. */
   struct timeval tv_recv;
@@ -161,7 +162,7 @@ struct router_lsa
   u_char flags;
   u_char zero;
   u_int16_t links;
-  struct router_lsa_link *link;
+  struct router_lsa_link link[1];
 };
 
 
@@ -206,8 +207,14 @@ struct lsa {
 
 #define OSPF_LSA_INITIAL_AGE 0
 #define OSPF_INITIAL_SEQUENCE_NUMBER 0
+#define OSPF_LSA_MAX_AGE 3600
+#define OSPF_LSA_RESEND_SELF 1800
 
 struct router_lsa* set_router_lsa();
 u_int16_t ospf_lsa_checksum (struct lsa_header *);
 int ospf_lsa_checksum_valid (struct lsa_header *);
+
+int add_lsa(struct lsa_header *);
+void remove_lsa(struct ospf_lsa *);
+
 #endif /* LSA_H_ */

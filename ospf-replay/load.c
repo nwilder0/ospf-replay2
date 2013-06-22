@@ -15,6 +15,7 @@
 #include "replay.h"
 
 void load_defaults() {
+	int i;
 
 	replay_log("load_defaults: starting function\n");
 
@@ -38,7 +39,11 @@ void load_defaults() {
 	ospf0->ref_bandwdith = OSPF_DEFAULT_REFERENCE_BANDWIDTH;
 	ospf0->active_pfxcount = ospf0->ifcount = ospf0->nbrcount = ospf0->pfxcount = 0;
 
-	ospf0->eventlist = ospf0->iflist = ospf0->nbrlist = ospf0->pflist = ospf0->lsdb = NULL;
+	ospf0->eventlist = ospf0->iflist = ospf0->nbrlist = ospf0->pflist = NULL;
+	ospf0->lsdb->checksum = 0;
+	ospf0->lsdb->count = 0;
+	ospf0->lsdb->this_rtr = NULL;
+	for(i=0;i<OSPF_LSA_TYPES;i++) ospf0->lsdb->lsa_list[i] = NULL;
 
 	replay_log("load_defaults: Clearing out the select() file/stream sets\n");
 	// clear out the select() file/stream descriptor sets
@@ -63,7 +68,7 @@ void load_config(const char* filename) {
 	// temp variable to hold log/error strings including variables
 	char mesg[256] = "";
 	// word# holds an individual word from current line of the file, ifname = interface name when in the interface block of the config file
-	char *word, *word2, *word3, *word4, *ifname, *logfilename;
+	char *word, *word2, *word3, *ifname, *logfilename;
 	// indicates which block of the config file is currently being read
 	int config_block=0;
 	// before we do anything create the global structs and make sure all their necessary members are NULL'd or zero'd out

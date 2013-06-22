@@ -52,7 +52,7 @@ struct ospf {
 	int nbrcount;
 
 	// OSPF events awaiting execution
-	struct replay_list *eventlist;
+	struct replay_nlist *eventlist;
 
 	// OSPF protocol sockets - listening set
 	fd_set ospf_sockets_in;
@@ -85,17 +85,17 @@ struct ospf {
 #define OSPF_DEFAULT_DEAD 40
 #define OSPF_DEFAULT_TRANSMITDELAY 0
 #define OSPF_DEFAULT_RETRANSMIT 0
-#define OSPF_DEFAULT_COST 10000
+#define OSPF_DEFAULT_COST 10000U
 
 #define OSPF_DEFAULT_REFERENCE_BANDWIDTH 100UL
 
-
+#define OSPF_LSA_TYPES 9
 
 struct ospf_lsdb {
-	struct replay_list *lsa_list[9];
+	struct replay_list *lsa_list[OSPF_LSA_TYPES];
 	unsigned long count;
 	unsigned int checksum;
-	struct router_lsa *this_rtr;
+	struct ospf_lsa *this_rtr;
 };
 
 struct route_table {

@@ -55,8 +55,8 @@ void remove_interface(struct ospf_interface*);
 struct replay_interface* find_interface(u_int32_t, u_int32_t);
 u_int16_t get_if_metric(struct ospf_interface*);
 
-sytem_if_up();
-system_if_down();
+void sytem_if_up();
+void system_if_down();
 
 
 #endif /* INTERFACE_H_ */
