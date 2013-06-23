@@ -47,7 +47,13 @@ struct ospf_interface {
 	struct replay_list *nbrlist;
 	int ospf_socket;
 	u_int16_t metric;
+	struct in_addr bdr;
+	struct in_addr dr;
+	u_int16_t auth_type;
+	unsigned char auth_data[8];
 };
+
+#define OSPF_AUTHTYPE_NONE 0
 
 struct replay_list* load_interfaces();
 struct ospf_interface* add_interface(struct replay_interface*,u_int32_t);

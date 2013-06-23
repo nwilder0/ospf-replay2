@@ -67,7 +67,7 @@ struct ospf {
 	int max_socket;
 
 	// global timers
-	int hello_interval, dead_interval, transmit_delay, retransmit_interval;
+	u_int32_t hello_interval, dead_interval, transmit_delay, retransmit_interval;
 
 	// global cost setting
 	u_int16_t cost;
@@ -78,14 +78,22 @@ struct ospf {
 	// refence bandwidth
 	unsigned long ref_bandwdith;
 
+	// ospf options
+	u_int8_t options;
+
+	// ospf router priority
+	u_int8_t priority;
+
 };
 
+#define OSPF_DEFAULT_OPTIONS 0
 #define OSPF_DEFAULT_PASSIF 0
 #define OSPF_DEFAULT_HELLO 10
 #define OSPF_DEFAULT_DEAD 40
 #define OSPF_DEFAULT_TRANSMITDELAY 0
 #define OSPF_DEFAULT_RETRANSMIT 0
 #define OSPF_DEFAULT_COST 10000U
+#define OSPF_DEFAULT_PRIORITY 1
 
 #define OSPF_DEFAULT_REFERENCE_BANDWIDTH 100UL
 
@@ -121,6 +129,7 @@ struct route_entry {
 };
 
 #define OSPF_MULTICAST_ALLROUTERS "224.0.0.5"
+#define OSPF_VERSION 0x02
 
 #define TRUE 1
 #define FALSE 0

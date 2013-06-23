@@ -38,6 +38,8 @@ void load_defaults() {
 	ospf0->transmit_delay = OSPF_DEFAULT_TRANSMITDELAY;
 	ospf0->ref_bandwdith = OSPF_DEFAULT_REFERENCE_BANDWIDTH;
 	ospf0->active_pfxcount = ospf0->ifcount = ospf0->nbrcount = ospf0->pfxcount = 0;
+	ospf0->options = OSPF_DEFAULT_OPTIONS;
+	ospf0->priority = OSPF_DEFAULT_PRIORITY;
 
 	ospf0->eventlist = ospf0->iflist = ospf0->nbrlist = ospf0->pflist = NULL;
 	ospf0->lsdb->checksum = 0;

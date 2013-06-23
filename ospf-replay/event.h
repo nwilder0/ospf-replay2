@@ -41,4 +41,6 @@ void add_event(struct replay_object*,u_int8_t);
 void remove_event(struct ospf_event*);
 struct ospf_event* find_event(struct replay_object*,u_int8_t);
 
+
+
 #endif /* EVENT_H_ */

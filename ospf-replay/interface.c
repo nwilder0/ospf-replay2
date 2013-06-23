@@ -162,6 +162,10 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		new_if->pflist = NULL;
 		new_if->nbrlist = NULL;
 		new_if->metric = ospf0->ref_bandwdith / iface->speed;
+		inet_pton(AF_INET,"0.0.0.0",&new_if->bdr);
+		inet_pton(AF_INET,"0.0.0.0",&new_if->dr);
+		new_if->auth_type = OSPF_AUTHTYPE_NONE;
+		bzero((char *) &new_if->auth_data, sizeof(new_if->auth_data));
 
 		new_item->next = NULL;
 		new_item->object = (struct replay_object *)new_if;
@@ -193,6 +197,7 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		FD_SET(ospf_socket, &ospf0->ospf_sockets_err);
 
 		ospf0->ifcount++;
+		add_event((struct replay_object *)new_if,OSPF_EVENT_HELLO_BROADCAST);
 	}
 	return new_if;
 
@@ -214,7 +219,7 @@ void remove_interface(struct ospf_interface *ospf_if) {
 		tmp_nitem = ospf0->eventlist;
 		while(tmp_nitem) {
 			tmp_event = (struct ospf_event *)tmp_nitem->object;
-			if(tmp_event->object == ospf_if) {
+			if(tmp_event->object == (struct replay_object *)ospf_if) {
 				ospf0->eventlist = remove_from_nlist(ospf0->eventlist,tmp_nitem);
 				free(tmp_event);
 			}

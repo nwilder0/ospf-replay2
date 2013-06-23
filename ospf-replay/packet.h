@@ -20,7 +20,6 @@
 #include "event.h"
 #include "interface.h"
 #include "load.h"
-#include "neighbor.h"
 #include "prefix.h"
 #include "utility.h"
 #include "lsa.h"
@@ -39,7 +38,7 @@ struct ospfhdr {
 
 };
 
-#define OSPF_MESG_HELLO 	0x01
+#define OSPF_MESG_HELLO 	0x01U
 #define OSPF_MESG_DBDESC	0x02
 #define OSPF_MESG_LSR		0x03
 #define OSPF_MESG_LSU		0x04
@@ -84,6 +83,7 @@ struct ospf_lsu {
 	u_int32_t lsa_num;
 };
 
+struct ospf_neighbor;
 
 void process_packet(int);
 
@@ -92,11 +92,14 @@ void process_dbdesc();
 void process_lsu();
 void process_lsr();
 void process_lsack();
-void send_hello();
+void send_hello(struct ospf_interface*,struct ospf_neighbor*);
 void send_dbdesc();
 void send_lsu();
 void send_lsr();
 void send_lsack();
+
+void build_ospf_packet(u_int32_t,u_int32_t,u_int8_t,void*,int,struct ospf_interface*);
+void send_packet(struct ospf_interface*,void*,u_int32_t,int);
 
 
 #endif /* PACKET_H_ */

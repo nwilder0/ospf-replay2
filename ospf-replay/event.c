@@ -37,9 +37,14 @@ void do_event(struct replay_nlist *item) {
 
 	switch(event->type) {
 
-		case OSPF_EVENT_LSA_AGING:
-			remove_lsa((struct ospf_lsa *)event->object);
-			break;
+	case OSPF_EVENT_HELLO_BROADCAST:
+		send_hello((struct ospf_interface *)event->object,NULL);
+		add_event(event->object,OSPF_EVENT_HELLO_BROADCAST);
+		break;
+
+	case OSPF_EVENT_LSA_AGING:
+		remove_lsa((struct ospf_lsa *)event->object);
+		break;
 	}
 
 	ospf0->eventlist = remove_from_nlist(ospf0->eventlist,item);
@@ -58,6 +63,10 @@ void add_event(struct replay_object *object,u_int8_t type) {
 		new->type = type;
 
 		switch(type) {
+
+		case OSPF_EVENT_HELLO_BROADCAST:
+			new->tv.tv_sec = new->tv.tv_sec + ospf0->hello_interval;
+			break;
 
 		case OSPF_EVENT_LSA_AGING:
 			new->tv.tv_sec = new->tv.tv_sec + OSPF_LSA_MAX_AGE;
