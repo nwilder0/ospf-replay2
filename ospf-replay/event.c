@@ -15,7 +15,35 @@
 #include "replay.h"
 
 void check_events() {
+	struct timeval now;
+	struct replay_nlist *tmp_item,*prev_item;
+	gettimeofday(&now,NULL);
+	tmp_item = ospf0->eventlist;
+	while(tmp_item) {
+		if(tmp_item->key <= now.tv_sec) {
+			prev_item = tmp_item;
+			tmp_item = tmp_item->next;
+			do_event(prev_item);
+		}
+		else {
+			tmp_item = NULL;
+		}
+	}
+}
 
+void do_event(struct replay_nlist *item) {
+	struct ospf_event *event;
+	event = (struct ospf_event *) item->object;
+
+	switch(event->type) {
+
+		case OSPF_EVENT_LSA_AGING:
+			remove_lsa((struct ospf_lsa *)event->object);
+			break;
+	}
+
+	ospf0->eventlist = remove_from_nlist(ospf0->eventlist,item);
+	free(event);
 }
 
 void add_event(struct replay_object *object,u_int8_t type) {

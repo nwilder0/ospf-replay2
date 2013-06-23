@@ -33,7 +33,6 @@ struct replay_list* load_interfaces() {
 	struct ethtool_cmd cmd;
 	int s, rc, i;
 	int numif;
-	uint32_t if_net;
 
 	// find number of interfaces.
 	memset(&ifc,0,sizeof(ifc));
@@ -202,6 +201,7 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 void remove_interface(struct ospf_interface *ospf_if) {
 	struct ospf_prefix *tmp_pfx;
 	struct replay_list *tmp_item,*next;
+	struct replay_nlist *tmp_nitem;
 	struct ospf_interface *tmp_if;
 	struct ospf_neighbor *tmp_nbr;
 	struct ospf_event *tmp_event;
@@ -211,11 +211,11 @@ void remove_interface(struct ospf_interface *ospf_if) {
 		FD_CLR(ospf_if->ospf_socket,&ospf0->ospf_sockets_out);
 		FD_CLR(ospf_if->ospf_socket,&ospf0->ospf_sockets_err);
 
-		tmp_item = ospf0->eventlist;
-		while(tmp_item) {
-			tmp_event = (struct ospf_event *)tmp_item->object;
+		tmp_nitem = ospf0->eventlist;
+		while(tmp_nitem) {
+			tmp_event = (struct ospf_event *)tmp_nitem->object;
 			if(tmp_event->object == ospf_if) {
-				ospf0->eventlist = remove_from_list(ospf0->eventlist,tmp_item);
+				ospf0->eventlist = remove_from_nlist(ospf0->eventlist,tmp_nitem);
 				free(tmp_event);
 			}
 		}

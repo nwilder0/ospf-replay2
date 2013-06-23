@@ -70,7 +70,7 @@ struct ospf {
 	int hello_interval, dead_interval, transmit_delay, retransmit_interval;
 
 	// global cost setting
-	u_int8_t cost;
+	u_int16_t cost;
 
 	// passive interface default
 	u_int8_t passif;
