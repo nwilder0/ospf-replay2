@@ -126,23 +126,43 @@ void process_hello(void *packet, u_int32_t from, u_int32_t to, unsigned int size
 	struct ospf_neighbor *nbr;
 	struct in_addr ospf_mcast, *neighbors;
 	int nbr_count=0, i=0;
-
+	nbr = NULL;
 	ospfheader = (struct ospfhdr *)packet;
 	hello = (struct ospf_hello *)(packet+OSPFHDR_LEN);
 
 	inet_pton(AF_INET,OSPF_MULTICAST_ALLROUTERS,&ospf_mcast);
 	if((to == ospf_mcast.s_addr) || (to == oiface->iface->ip.s_addr)) {
-		add_neighbor(from,hello->network_mask.s_addr,ospfheader->src_router,oiface,hello->hello_interval,hello->options,hello->priority,hello->dead_interval);
+		add_neighbor(from,ospfheader->src_router,oiface,hello);
 		nbr_count = ((size-sizeof(struct ospfhdr)) - (sizeof(struct ospf_hello) - sizeof(struct in_addr)))/(sizeof(struct in_addr));
 		if(nbr_count>0) {
 			neighbors = (struct in_addr *)(packet + (size - (sizeof(struct in_addr)*nbr_count)));
 			for(i=0;i<nbr_count;i++) {
 				if(neighbors[i].s_addr == ospf0->router_id.s_addr) {
 					nbr = find_neighbor_by_ip(to);
-					if(nbr) send_dbdesc(nbr);
+
+					//if(nbr) send_dbdesc(nbr);
 				}
 			}
 		}
+		send_hello(oiface,NULL);
+		if(nbr) {
+			//check if adjacency should form
+			/* - p2p
+			* - this is DR
+			* - this is BDR
+			* - other is DR
+			* - other is BDR
+			*
+			*/
+			nbr->state = OSPF_NBRSTATE_2WAY;
+			if((oiface->dr.s_addr == ospf0->router_id.s_addr)||(oiface->bdr.s_addr==ospf0->router_id.s_addr)||(nbr->dr.s_addr==nbr->router_id.s_addr)||(nbr->bdr.s_addr==nbr->router_id.s_addr)) {
+				//if so, go to exstart
+			}
+
+
+
+		}
+
 	} else {
 		// how did this packet get here
 	}

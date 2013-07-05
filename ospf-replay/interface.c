@@ -214,6 +214,7 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 
 		ospf0->ifcount++;
 		add_event((struct replay_object *)new_if,OSPF_EVENT_HELLO_BROADCAST);
+		add_event((struct replay_object *)new_if,OSPF_EVENT_NO_DR);
 	}
 	return new_if;
 
@@ -232,14 +233,8 @@ void remove_interface(struct ospf_interface *ospf_if) {
 		FD_CLR(ospf_if->ospf_socket,&ospf0->ospf_sockets_out);
 		FD_CLR(ospf_if->ospf_socket,&ospf0->ospf_sockets_err);
 
-		tmp_nitem = ospf0->eventlist;
-		while(tmp_nitem) {
-			tmp_event = (struct ospf_event *)tmp_nitem->object;
-			if(tmp_event->object == (struct replay_object *)ospf_if) {
-				ospf0->eventlist = remove_from_nlist(ospf0->eventlist,tmp_nitem);
-				free(tmp_event);
-			}
-		}
+		remove_object_events((struct replay_object *)ospf_if);
+
 		tmp_item = ospf_if->pflist;
 		while(tmp_item) {
 			next = tmp_item->next;

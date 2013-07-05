@@ -136,6 +136,8 @@ struct route_entry {
 
 #define WHITESPACE " \n\t"
 
+#define OSPF_WAIT_FOR_DR 10
+
 extern struct replay_config *replay0;
 extern struct ospf *ospf0;
 

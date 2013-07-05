@@ -14,7 +14,7 @@
 #include "utility.h"
 #include "replay.h"
 
-void add_neighbor(u_int32_t ip,u_int32_t mask,u_int32_t router_id,struct ospf_interface *ospf_if,u_short hello_interval,u_char options,u_char priority,u_int32_t dead_interval) {
+void add_neighbor(u_int32_t ip,u_int32_t router_id,struct ospf_interface *ospf_if,struct ospf_hello *hello) {
 	struct ospf_neighbor *nbr;
 
 	nbr = find_neighbor_by_ip(ip);
@@ -26,14 +26,17 @@ void add_neighbor(u_int32_t ip,u_int32_t mask,u_int32_t router_id,struct ospf_in
 	} else {
 		//else create new neighbor
 		nbr = (struct ospf_neighbor *)malloc(sizeof(struct ospf_neighbor));
-		nbr->dead_interval = dead_interval;
-		nbr->hello_interval = hello_interval;
+		nbr->dead_interval = hello->dead_interval;
+		nbr->hello_interval = hello->hello_interval;
 		nbr->ip.s_addr = ip;
-		nbr->options = options;
+		nbr->mask.s_addr = hello->network_mask.s_addr;
+		nbr->options = hello->options;
 		nbr->ospf_if = ospf_if;
-		nbr->priority = priority;
+		nbr->priority = hello->priority;
 		nbr->router_id.s_addr = router_id;
-		nbr->state = OSPF_NBRSTATE_DOWN;
+		nbr->bdr.s_addr = hello->bdr.s_addr;
+		nbr->dr.s_addr = hello->dr.s_addr;
+		nbr->state = OSPF_NBRSTATE_INIT;
 		gettimeofday(&nbr->last_heard,NULL);
 		add_event((struct replay_object*)nbr,OSPF_EVENT_NBR_DEAD);
 

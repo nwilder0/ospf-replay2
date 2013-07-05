@@ -27,7 +27,7 @@
 #include "replay.h"
 
 struct ospf_neighbor {
-	struct in_addr router_id, ip;
+	struct in_addr router_id, ip, mask, dr, bdr;
 	struct ospf_interface *ospf_if;
 	u_int8_t state;
 	u_short hello_interval;
@@ -47,7 +47,7 @@ struct ospf_neighbor {
 #define OSPF_NBRSTATE_FULL 		7
 
 
-void add_neighbor(u_int32_t,u_int32_t,u_int32_t,struct ospf_interface*,u_short,u_char,u_char,u_int32_t);
+void add_neighbor(u_int32_t,u_int32_t,struct ospf_interface*,struct ospf_hello*);
 void remove_neighbor(struct ospf_neighbor*);
 struct ospf_neighbor* find_neighbor_by_ip(u_int32_t);
 

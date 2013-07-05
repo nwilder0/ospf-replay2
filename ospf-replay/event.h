@@ -35,6 +35,7 @@ struct ospf_event {
 #define OSPF_EVENT_HELLO_BROADCAST 0
 #define OSPF_EVENT_LSA_AGING 1
 #define OSPF_EVENT_NBR_DEAD 2
+#define OSPF_EVENT_NO_DR 3
 
 void check_events();
 void do_event(struct replay_nlist*);

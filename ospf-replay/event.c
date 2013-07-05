@@ -33,6 +33,7 @@ void check_events() {
 
 void do_event(struct replay_nlist *item) {
 	struct ospf_event *event;
+	struct ospf_interface *oiface;
 	event = (struct ospf_event *) item->object;
 
 	switch(event->type) {
@@ -48,6 +49,13 @@ void do_event(struct replay_nlist *item) {
 
 	case OSPF_EVENT_NBR_DEAD:
 		remove_neighbor((struct ospf_neighbor *)event->object);
+		break;
+
+	case OSPF_EVENT_NO_DR:
+		oiface = (struct ospf_interface *)event->object;
+		if(!oiface->dr.s_addr) {
+			oiface->dr.s_addr = ospf0->router_id.s_addr;
+		}
 		break;
 	}
 
@@ -85,6 +93,9 @@ void add_event(struct replay_object *object,u_int8_t type) {
 			if(tmp) {
 				remove_event(tmp);
 			}
+			break;
+		case OSPF_EVENT_NO_DR:
+			new->tv.tv_sec = new->tv.tv_sec + OSPF_WAIT_FOR_DR;
 			break;
 		}
 
