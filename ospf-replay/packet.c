@@ -16,6 +16,35 @@
 
 void process_packet(int socket) {
 
+	unsigned char *buffer;
+	int size = 0;
+	struct sockaddr_in recv_addr;
+	struct iphdr *ipheader;
+	struct ospfhdr *ospfheader;
+	unsigned int iphdr_len, recv_addr_len;
+	struct ospf_interface *oiface;
+
+	buffer = (unsigned char *)malloc(sizeof(char)*REPLAY_PACKET_BUFFER);
+	bzero((char *) &recv_addr, sizeof(recv_addr));
+	recv_addr_len = sizeof(recv_addr);
+
+	size = recvfrom(socket, buffer, REPLAY_PACKET_BUFFER, 0, (struct sockaddr *)&recv_addr, &recv_addr_len);
+	if(size>0) {
+		oiface = find_oiface_by_socket(socket);
+		ipheader = (struct iphdr *)buffer;
+		iphdr_len = ipheader->ihl*4;
+		ospfheader = (struct ospfhdr *)(buffer+iphdr_len);
+		switch(ospfheader->mesg_type) {
+
+		case OSPF_MESG_HELLO:
+			process_hello(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+			break;
+		}
+	} else {
+		//error reading in packet
+	}
+	free(buffer);
+
 }
 
 void send_hello(struct ospf_interface *ospf_if,struct ospf_neighbor *neighbor) {
@@ -85,8 +114,40 @@ void send_packet(struct ospf_interface *ospf_if,void *packet,u_int32_t remote_ad
 	dest_addr.sin_family = AF_INET;
 	dest_addr.sin_addr.s_addr = remote_addr;
 
-	error = sendto(ospf_if->ospf_socket,packet,size,0,&dest_addr,sizeof(dest_addr));
+	error = sendto(ospf_if->ospf_socket,packet,size,0,(struct sockaddr *)&dest_addr,sizeof(dest_addr));
 	if(error<1) {
 
 	}
+}
+
+void process_hello(void *packet, u_int32_t from, u_int32_t to, unsigned int size, struct ospf_interface *oiface) {
+	struct ospfhdr *ospfheader;
+	struct ospf_hello *hello;
+	struct ospf_neighbor *nbr;
+	struct in_addr ospf_mcast, *neighbors;
+	int nbr_count=0, i=0;
+
+	ospfheader = (struct ospfhdr *)packet;
+	hello = (struct ospf_hello *)(packet+OSPFHDR_LEN);
+
+	inet_pton(AF_INET,OSPF_MULTICAST_ALLROUTERS,&ospf_mcast);
+	if((to == ospf_mcast.s_addr) || (to == oiface->iface->ip.s_addr)) {
+		add_neighbor(from,hello->network_mask.s_addr,ospfheader->src_router,oiface,hello->hello_interval,hello->options,hello->priority,hello->dead_interval);
+		nbr_count = ((size-sizeof(struct ospfhdr)) - (sizeof(struct ospf_hello) - sizeof(struct in_addr)))/(sizeof(struct in_addr));
+		if(nbr_count>0) {
+			neighbors = (struct in_addr *)(packet + (size - (sizeof(struct in_addr)*nbr_count)));
+			for(i=0;i<nbr_count;i++) {
+				if(neighbors[i].s_addr == ospf0->router_id.s_addr) {
+					nbr = find_neighbor_by_ip(to);
+					if(nbr) send_dbdesc(nbr);
+				}
+			}
+		}
+	} else {
+		// how did this packet get here
+	}
+}
+
+void send_dbdesc(struct ospf_neighbor *nbr) {
+
 }

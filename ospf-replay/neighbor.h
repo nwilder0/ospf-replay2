@@ -30,6 +30,11 @@ struct ospf_neighbor {
 	struct in_addr router_id, ip;
 	struct ospf_interface *ospf_if;
 	u_int8_t state;
+	u_short hello_interval;
+	u_char options;
+	u_char priority;
+	u_int32_t dead_interval;
+	struct timeval last_heard;
 };
 
 #define OSPF_NBRSTATE_DOWN 		0
@@ -44,5 +49,6 @@ struct ospf_neighbor {
 
 struct ospf_neighbor* add_neighbor(u_int32_t,u_int32_t,struct ospf_interface*);
 void remove_neighbor(struct ospf_neighbor*);
+struct ospf_neighbor* find_neighbor_by_ip(u_int32_t);
 
 #endif /* NEIGHBOR_H_ */

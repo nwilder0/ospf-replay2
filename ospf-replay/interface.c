@@ -123,6 +123,26 @@ struct replay_interface* find_interface(uint32_t net_addr, uint32_t mask_addr) {
 	return found;
 }
 
+struct ospf_interface* find_oiface_by_socket(int socket) {
+
+	struct ospf_interface *search_if, *found;
+	struct replay_list *search_item;
+
+	search_item = ospf0->iflist;
+	found = NULL;
+
+	while(search_item) {
+		if(search_item->object) {
+			search_if = (struct ospf_interface *)search_item->object;
+			if (search_if->ospf_socket == socket) {
+				found = search_if;
+			}
+		}
+		search_item = search_item->next;
+	}
+	return found;
+}
+
 struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t area) {
 
 	struct ospf_interface *new_if, *tmp_if;

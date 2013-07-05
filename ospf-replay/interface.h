@@ -60,6 +60,7 @@ struct ospf_interface* add_interface(struct replay_interface*,u_int32_t);
 void remove_interface(struct ospf_interface*);
 struct replay_interface* find_interface(u_int32_t, u_int32_t);
 u_int16_t get_if_metric(struct ospf_interface*);
+struct ospf_interface* find_oiface_by_socket(int);
 
 void sytem_if_up();
 void system_if_down();
