@@ -162,13 +162,10 @@ int add_lsa(struct lsa_header *header) {
 
 	if(!duplicate) {
 		// add to appropriate array in lsdb
-		struct replay_list *new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
 		struct ospf_lsa *new_lsa = (struct ospf_lsa *) malloc(sizeof(struct ospf_lsa));
-		new_item->next = NULL;
-		new_item->object = (struct replay_object *) new_lsa;
 		new_lsa->header = header;
 		gettimeofday(&new_lsa->tv_recv,NULL);
-		ospf0->lsdb->lsa_list[header->type] = add_to_list(ospf0->lsdb->lsa_list[header->type],new_item);
+		ospf0->lsdb->lsa_list[header->type] = add_to_list(ospf0->lsdb->lsa_list[header->type],(struct replay_object *)new_lsa);
 		add_event((struct replay_object *)new_lsa,OSPF_EVENT_LSA_AGING);
 	} else {
 		add_event((struct replay_object *)tmp_lsa,OSPF_EVENT_LSA_AGING);

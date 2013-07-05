@@ -146,7 +146,7 @@ struct ospf_interface* find_oiface_by_socket(int socket) {
 struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t area) {
 
 	struct ospf_interface *new_if, *tmp_if;
-	struct replay_list *tmp_item, *new_item;
+	struct replay_list *tmp_item;
 	struct ip_mreq mreq;
 	struct sockaddr_in *sin = (struct sockaddr_in *)&iface->ifr->ifr_addr;
 	int ospf_socket;
@@ -175,7 +175,6 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 
 	if(!duplicate) {
 		new_if = (struct ospf_interface *) malloc(sizeof(struct ospf_interface));
-		new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
 
 		new_if->area_id = area;
 		new_if->iface = iface;
@@ -187,10 +186,7 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		new_if->auth_type = OSPF_AUTHTYPE_NONE;
 		bzero((char *) &new_if->auth_data, sizeof(new_if->auth_data));
 
-		new_item->next = NULL;
-		new_item->object = (struct replay_object *)new_if;
-
-		ospf0->iflist = add_to_list(ospf0->iflist,new_item);
+		ospf0->iflist = add_to_list(ospf0->iflist,(struct replay_object *)new_if);
 
 		ospf_socket = socket(AF_INET,SOCK_RAW,89);
 

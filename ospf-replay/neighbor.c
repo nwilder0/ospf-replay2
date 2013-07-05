@@ -16,7 +16,6 @@
 
 void add_neighbor(u_int32_t ip,u_int32_t mask,u_int32_t router_id,struct ospf_interface *ospf_if,u_short hello_interval,u_char options,u_char priority,u_int32_t dead_interval) {
 	struct ospf_neighbor *nbr;
-	struct replay_list *new_item;
 
 	nbr = find_neighbor_by_ip(ip);
 	// make sure if matches?
@@ -38,17 +37,10 @@ void add_neighbor(u_int32_t ip,u_int32_t mask,u_int32_t router_id,struct ospf_in
 		gettimeofday(&nbr->last_heard,NULL);
 		add_event((struct replay_object*)nbr,OSPF_EVENT_NBR_DEAD);
 
-		new_item = (struct replay_list *)malloc(sizeof(struct replay_list));
-		new_item->next = NULL;
-		new_item->object = (struct replay_object *)nbr;
-
-		ospf0->nbrlist = add_to_list(ospf0->nbrlist,new_item);
+		ospf0->nbrlist = add_to_list(ospf0->nbrlist,(struct replay_object *)nbr);
 		ospf0->nbrcount++;
 
-		new_item = (struct replay_list *)malloc(sizeof(struct replay_list));
-		new_item->next = NULL;
-		new_item->object = (struct replay_object *)nbr;
-		ospf_if->nbrlist = add_to_list(ospf_if->nbrlist,new_item);
+		ospf_if->nbrlist = add_to_list(ospf_if->nbrlist,(struct replay_object *)nbr);
 
 	}
 }

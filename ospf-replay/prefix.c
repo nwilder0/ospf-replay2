@@ -21,7 +21,7 @@ void add_prefix(char* full_string, u_int32_t area) {
 	struct replay_interface *iface;
 	struct in_addr net, mask;
 	struct ospf_prefix *new_pfx, *tmp_pfx;
-	struct replay_list *new_item, *tmp_item;
+	struct replay_list *tmp_item;
 	int duplicate = FALSE;
 
 	// split up the network and mask
@@ -50,17 +50,13 @@ void add_prefix(char* full_string, u_int32_t area) {
 		iface = find_interface(net.s_addr,mask.s_addr);
 
 		new_pfx = (struct ospf_prefix *) malloc(sizeof(struct ospf_prefix));
-		new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
 
 		new_pfx->mask.s_addr = mask.s_addr;
 		new_pfx->network.s_addr = net.s_addr;
 		new_pfx->iface = iface;
 		new_pfx->ospf_if = NULL;
 
-		new_item->next = NULL;
-		new_item->object = (struct replay_object *)new_pfx;
-
-		ospf0->pflist = add_to_list(ospf0->pflist,new_item);
+		ospf0->pflist = add_to_list(ospf0->pflist,(struct replay_object *)new_pfx);
 		ospf0->pfxcount++;
 
 		if(iface && !ospf0->passif) {
@@ -86,10 +82,7 @@ void add_prefix(char* full_string, u_int32_t area) {
 					}
 				}
 				if(!duplicate) {
-					new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
-					new_item->next = NULL;
-					new_item->object = (struct replay_object *)new_pfx;
-					new_pfx->ospf_if->pflist = add_to_list(new_pfx->ospf_if->pflist,new_item);
+					new_pfx->ospf_if->pflist = add_to_list(new_pfx->ospf_if->pflist,(struct replay_object *)new_pfx);
 				}
 			}
 		}

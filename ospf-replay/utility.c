@@ -59,9 +59,14 @@ const char *byte_to_binary(int x)
     return b;
 }
 
-struct replay_list* add_to_list(struct replay_list *list, struct replay_list *new) {
+struct replay_list* add_to_list(struct replay_list *list, struct replay_object *obj) {
 
-	struct replay_list *curr;
+	struct replay_list *curr,*new;
+
+	new = (struct replay_list *)malloc(sizeof(struct replay_list));
+	new->next = NULL;
+	new->object = obj;
+
 	curr = list;
 	if(new) {
 		if(list) {

@@ -45,7 +45,7 @@ void replay_error(char*);
 
 void replay_log(char*);
 
-struct replay_list* add_to_list(struct replay_list*,struct replay_list*);
+struct replay_list* add_to_list(struct replay_list*,struct replay_object*);
 
 struct replay_list* remove_from_list(struct replay_list*,struct replay_list*);
 
