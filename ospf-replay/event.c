@@ -45,6 +45,10 @@ void do_event(struct replay_nlist *item) {
 	case OSPF_EVENT_LSA_AGING:
 		remove_lsa((struct ospf_lsa *)event->object);
 		break;
+
+	case OSPF_EVENT_NBR_DEAD:
+		remove_neighbor((struct ospf_neighbor *)event->object);
+		break;
 	}
 
 	ospf0->eventlist = remove_from_nlist(ospf0->eventlist,item);
@@ -70,6 +74,13 @@ void add_event(struct replay_object *object,u_int8_t type) {
 
 		case OSPF_EVENT_LSA_AGING:
 			new->tv.tv_sec = new->tv.tv_sec + OSPF_LSA_MAX_AGE;
+			tmp = find_event(object,type);
+			if(tmp) {
+				remove_event(tmp);
+			}
+			break;
+		case OSPF_EVENT_NBR_DEAD:
+			new->tv.tv_sec = new->tv.tv_sec + ospf0->dead_interval;
 			tmp = find_event(object,type);
 			if(tmp) {
 				remove_event(tmp);
@@ -110,4 +121,22 @@ struct ospf_event* find_event(struct replay_object *object, u_int8_t type) {
 		curr = curr->next;
 	}
 	return found;
+}
+
+void remove_object_events(struct replay_object *object) {
+
+	struct ospf_event *tmp;
+	struct replay_nlist *curr;
+
+	curr = ospf0->eventlist;
+	while(curr) {
+		tmp = (struct ospf_event *)curr->object;
+		if(tmp) {
+			if(tmp->object == object) {
+				remove_event(tmp);
+			}
+		}
+		curr = curr->next;
+	}
+
 }

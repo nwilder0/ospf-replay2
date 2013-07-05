@@ -47,7 +47,7 @@ struct ospf_neighbor {
 #define OSPF_NBRSTATE_FULL 		7
 
 
-struct ospf_neighbor* add_neighbor(u_int32_t,u_int32_t,struct ospf_interface*);
+void add_neighbor(u_int32_t,u_int32_t,u_int32_t,struct ospf_interface*,u_short,u_char,u_char,u_int32_t);
 void remove_neighbor(struct ospf_neighbor*);
 struct ospf_neighbor* find_neighbor_by_ip(u_int32_t);
 

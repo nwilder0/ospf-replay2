@@ -34,11 +34,13 @@ struct ospf_event {
 
 #define OSPF_EVENT_HELLO_BROADCAST 0
 #define OSPF_EVENT_LSA_AGING 1
+#define OSPF_EVENT_NBR_DEAD 2
 
 void check_events();
 void do_event(struct replay_nlist*);
 void add_event(struct replay_object*,u_int8_t);
 void remove_event(struct ospf_event*);
+void remove_object_events(struct replay_object*);
 struct ospf_event* find_event(struct replay_object*,u_int8_t);
 
 
