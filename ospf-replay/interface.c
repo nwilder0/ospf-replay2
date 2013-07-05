@@ -223,10 +223,8 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 void remove_interface(struct ospf_interface *ospf_if) {
 	struct ospf_prefix *tmp_pfx;
 	struct replay_list *tmp_item,*next;
-	struct replay_nlist *tmp_nitem;
 	struct ospf_interface *tmp_if;
 	struct ospf_neighbor *tmp_nbr;
-	struct ospf_event *tmp_event;
 
 	if(ospf_if) {
 		FD_CLR(ospf_if->ospf_socket,&ospf0->ospf_sockets_in);
