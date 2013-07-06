@@ -183,6 +183,7 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		new_if->metric = ospf0->ref_bandwdith / iface->speed;
 		inet_pton(AF_INET,"0.0.0.0",&new_if->bdr);
 		inet_pton(AF_INET,"0.0.0.0",&new_if->dr);
+		new_if->priority = ospf0->priority;
 		new_if->auth_type = OSPF_AUTHTYPE_NONE;
 		bzero((char *) &new_if->auth_data, sizeof(new_if->auth_data));
 

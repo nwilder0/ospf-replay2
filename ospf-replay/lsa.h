@@ -216,5 +216,6 @@ int ospf_lsa_checksum_valid (struct lsa_header *);
 
 int add_lsa(struct lsa_header *);
 void remove_lsa(struct ospf_lsa *);
+struct replay_list* copy_lsalist();
 
 #endif /* LSA_H_ */

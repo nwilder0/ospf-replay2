@@ -49,6 +49,7 @@ struct ospf_interface {
 	u_int16_t metric;
 	struct in_addr bdr;
 	struct in_addr dr;
+	u_int8_t priority;
 	u_int16_t auth_type;
 	unsigned char auth_data[8];
 };

@@ -50,7 +50,7 @@ struct ospf_hello
   struct in_addr network_mask;
   u_short hello_interval;
   u_char options;
-  u_char priority;
+  u_int8_t priority;
   u_int32_t dead_interval;
   struct in_addr dr;
   struct in_addr bdr;
@@ -68,8 +68,8 @@ struct ospf_hello
 struct ospf_dbdesc
 {
   u_int16_t mtu;
-  u_char options;
-  u_char flags;
+  u_int8_t options;
+  u_int8_t flags;
   u_int32_t dd_seqnum;
 };
 
@@ -86,6 +86,9 @@ struct ospf_lsu {
 struct ospf_neighbor;
 
 #define REPLAY_PACKET_BUFFER 4096
+#define OSPF_DBDESC_FLAG_INIT 4
+#define OSPF_DBDESC_FLAG_MORE 2
+#define OSPF_DBDESC_FLAG_MASTER 1
 
 void process_packet(int);
 
@@ -95,7 +98,7 @@ void process_lsu();
 void process_lsr();
 void process_lsack();
 void send_hello(struct ospf_interface*,struct ospf_neighbor*);
-void send_dbdesc(struct ospf_neighbor*);
+void send_dbdesc(struct ospf_neighbor*,u_int32_t);
 void send_lsu();
 void send_lsr();
 void send_lsack();

@@ -37,6 +37,13 @@ void add_neighbor(u_int32_t ip,u_int32_t router_id,struct ospf_interface *ospf_i
 		nbr->bdr.s_addr = hello->bdr.s_addr;
 		nbr->dr.s_addr = hello->dr.s_addr;
 		nbr->state = OSPF_NBRSTATE_INIT;
+		nbr->master = OSPF_DBDESC_FLAG_MASTER;
+		nbr->last_sent_seq = 0;
+		nbr->last_recv_seq = 0;
+		nbr->lsa_need_list = NULL;
+		nbr->lsa_need_count = 0;
+		nbr->lsa_send_list = NULL;
+		nbr->lsa_send_count = 0;
 		gettimeofday(&nbr->last_heard,NULL);
 		add_event((struct replay_object*)nbr,OSPF_EVENT_NBR_DEAD);
 

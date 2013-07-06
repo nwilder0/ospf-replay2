@@ -183,3 +183,17 @@ void remove_lsa(struct ospf_lsa *lsa) {
 	free(lsa->header);
 	free(lsa);
 }
+
+struct replay_list* copy_lsalist() {
+	struct replay_list *start, *tmp_item;
+	int i;
+	start=NULL;
+	for(i=0;i<OSPF_LSA_TYPES;i++) {
+		tmp_item = ospf0->lsdb->lsa_list[i];
+		while(tmp_item) {
+			start = add_to_list(start,tmp_item->object);
+			tmp_item = tmp_item->next;
+		}
+	}
+	return start;
+}

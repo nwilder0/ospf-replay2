@@ -32,8 +32,15 @@ struct ospf_neighbor {
 	u_int8_t state;
 	u_short hello_interval;
 	u_char options;
-	u_char priority;
+	u_int8_t priority;
 	u_int32_t dead_interval;
+	u_int8_t master;
+	u_int32_t last_sent_seq;
+	u_int32_t last_recv_seq;
+	struct replay_list *lsa_send_list;
+	unsigned long lsa_send_count;
+	struct replay_list *lsa_need_list;
+	unsigned long lsa_need_count;
 	struct timeval last_heard;
 };
 
