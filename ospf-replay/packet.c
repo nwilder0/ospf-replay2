@@ -39,6 +39,9 @@ void process_packet(int socket) {
 		case OSPF_MESG_HELLO:
 			process_hello(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
 			break;
+		case OSPF_MESG_DBDESC:
+			process_dbdesc(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+			break;
 		}
 	} else {
 		//error reading in packet
@@ -118,6 +121,7 @@ void send_packet(struct ospf_interface *ospf_if,void *packet,u_int32_t remote_ad
 	if(error<1) {
 
 	}
+	free(packet);
 }
 
 void process_hello(void *packet, u_int32_t from, u_int32_t to, unsigned int size, struct ospf_interface *oiface) {
@@ -204,7 +208,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 //if exstart send empty dbdesc w/ I,M,MS bits set
 // if exchange send full db
 	struct in_addr src_addr, remote_addr;
-	void *packet;
+	void *packet=NULL;
 	struct ospf_dbdesc *dbdesc;
 	struct replay_list *tmp_item;
 	int size, send_count;
@@ -219,11 +223,8 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 		packet = malloc(size);
 		dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 		dbdesc->flags = OSPF_DBDESC_FLAG_INIT + OSPF_DBDESC_FLAG_MORE + OSPF_DBDESC_FLAG_MASTER;
-		dbdesc->options = ospf0->options;
 		gettimeofday(&tv,NULL);
 		dbdesc->dd_seqnum = (u_int32_t)(tv.tv_sec);
-		dbdesc->mtu = nbr->ospf_if->iface->mtu;
-		nbr->last_sent_seq = dbdesc->dd_seqnum;
 
 	} else if (nbr->state==OSPF_NBRSTATE_EXCHANGE) {
 		if(nbr->master) {
@@ -236,9 +237,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 					bzero((char *) &packet, size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 					dbdesc->flags = OSPF_DBDESC_FLAG_MORE + nbr->master;
-					dbdesc->options = ospf0->options;
 					dbdesc->dd_seqnum = ++(nbr->last_sent_seq);
-					dbdesc->mtu = nbr->ospf_if->iface->mtu;
 					tmp_item = nbr->lsa_send_list;
 
 					for(send_count=nbr->lsa_send_count;send_count;send_count--) {
@@ -255,9 +254,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 					packet = malloc(size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 					dbdesc->flags = nbr->master;
-					dbdesc->options = ospf0->options;
 					dbdesc->dd_seqnum = ++(nbr->last_sent_seq);
-					dbdesc->mtu = nbr->ospf_if->iface->mtu;
 				}
 			// if no ack, resent last dbdesc
 			} else {
@@ -268,9 +265,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 					bzero((char *) &packet, size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 					dbdesc->flags = OSPF_DBDESC_FLAG_MORE + nbr->master;
-					dbdesc->options = ospf0->options;
 					dbdesc->dd_seqnum = nbr->last_sent_seq;
-					dbdesc->mtu = nbr->ospf_if->iface->mtu;
 					tmp_item = nbr->lsa_send_list;
 
 					for(send_count=nbr->lsa_send_count;send_count;send_count--) {
@@ -287,9 +282,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 					packet = malloc(size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 					dbdesc->flags = nbr->master;
-					dbdesc->options = ospf0->options;
 					dbdesc->dd_seqnum = nbr->last_sent_seq;
-					dbdesc->mtu = nbr->ospf_if->iface->mtu;
 				}
 			}
 
@@ -300,9 +293,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 				packet = malloc(size);
 				dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 				dbdesc->flags = nbr->master;
-				dbdesc->options = ospf0->options;
 				dbdesc->dd_seqnum = db_seq_num;
-				dbdesc->mtu = nbr->ospf_if->iface->mtu;
 
 			} else {
 				//send initial full dbdesc
@@ -311,9 +302,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 				bzero((char *) &packet, size);
 				dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 				dbdesc->flags = OSPF_DBDESC_FLAG_MORE + nbr->master;
-				dbdesc->options = ospf0->options;
 				dbdesc->dd_seqnum = nbr->last_recv_seq;
-				dbdesc->mtu = nbr->ospf_if->iface->mtu;
 				tmp_item = nbr->lsa_send_list;
 
 				for(send_count=nbr->lsa_send_count;send_count;send_count--) {
@@ -328,8 +317,96 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 			}
 		}
 	}
+	if(packet) {
+		dbdesc->options = ospf0->options;
+		dbdesc->mtu = nbr->ospf_if->iface->mtu;
+		nbr->last_sent_seq = dbdesc->dd_seqnum;
 
-	build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_DBDESC,packet,size,nbr->ospf_if);
-	send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
+		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_DBDESC,packet,size,nbr->ospf_if);
+		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
+	}
+
+}
+
+void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int size, struct ospf_interface *oiface) {
+	struct ospf_neighbor *nbr=NULL;
+	struct ospf_dbdesc *dbdesc;
+	struct ospfhdr *ospf_header;
+	int lsa_hdrs;
+	struct lsa_header *lsahdr,*need_lsa;
+
+	nbr=find_neighbor_by_ip(from);
+	if(nbr) {
+		if(nbr->ospf_if != oiface) {
+			nbr = NULL;
+		}
+	}
+
+	if(packet && nbr) {
+		ospf_header = (struct ospfhdr *)(packet);
+		if(ospf_header->mesg_type == OSPF_MESG_DBDESC) {
+			dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
+			if(dbdesc) {
+				nbr->last_recv_seq = dbdesc->dd_seqnum;
+				if(nbr->state == OSPF_NBRSTATE_EXSTART) {
+					//calc who is master
+					if(dbdesc->flags == OSPF_DBDESC_FLAG_MORE + OSPF_DBDESC_FLAG_INIT + OSPF_DBDESC_FLAG_MASTER) {
+						//move to exchange
+						//if slave send dbdesc
+						nbr->state = OSPF_NBRSTATE_EXCHANGE;
+						if(ntohl(nbr->router_id.s_addr) < ntohl(ospf0->router_id.s_addr)) {
+							nbr->master = OSPF_DBDESC_FLAG_MASTER;
+						} else {
+							send_dbdesc(nbr,0);
+						}
+					}
+
+				} else if (nbr->state==OSPF_NBRSTATE_EXCHANGE) {
+					if(CHECK_BIT(dbdesc->flags,OSPF_DBDESC_FLAG_MORE)) {
+						//get the lsa hdrs and check which are needed
+						lsa_hdrs = size - sizeof(struct ospfhdr) - sizeof(struct ospf_dbdesc);
+						while(lsa_hdrs) {
+							lsahdr = (struct lsa_header *)(packet + (size-lsa_hdrs));
+								if(!have_lsa(lsahdr)) {
+									//add to needed lsa list
+									need_lsa = (struct lsa_header *) malloc(sizeof(struct lsa_header));
+									nbr->lsa_need_list = add_to_list(nbr->lsa_need_list,(struct replay_object *)need_lsa);
+									nbr->lsa_need_count++;
+								}
+							lsa_hdrs = lsa_hdrs - sizeof(struct lsa_header);
+						}
+					} else {
+
+						if(nbr->master) {
+							if((nbr->last_sent_seq==nbr->last_recv_seq)&&nbr->lsa_send_count==0) {
+								nbr->state = OSPF_NBRSTATE_LOADING;
+							}
+
+						} else {
+							nbr->state = OSPF_NBRSTATE_LOADING;
+
+						}
+					}
+					if(!(nbr->master&&nbr->state==OSPF_NBRSTATE_LOADING)) {
+						send_dbdesc(nbr,nbr->last_recv_seq);
+					}
+
+					//if not MORE and slave then send ack, move to loading
+
+					//if master and first slave packet, checked needed lsas, and send dbdesc
+
+					//if master and ack, send next
+
+					//if master and received ack to last then move to loading
+				}
+				if(nbr->state == OSPF_NBRSTATE_LOADING && nbr->lsa_need_list) {
+					send_lsr(nbr);
+				}
+			}
+		}
+	}
+}
+
+void send_lsr(struct ospf_neighbor *nbr) {
 
 }

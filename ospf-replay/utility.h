@@ -51,7 +51,7 @@ struct replay_list* remove_from_list(struct replay_list*,struct replay_list*);
 
 struct replay_list* find_in_list(struct replay_list*,struct replay_object*);
 
-struct replay_nlist* add_to_nlist(struct replay_nlist*,struct replay_nlist*);
+struct replay_nlist* add_to_nlist(struct replay_nlist*,struct replay_object*,unsigned long long);
 
 struct replay_nlist* remove_from_nlist(struct replay_nlist*,struct replay_nlist*);
 

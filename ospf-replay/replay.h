@@ -18,6 +18,7 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <math.h>
 #include "event.h"
 #include "interface.h"
 #include "load.h"
@@ -100,7 +101,7 @@ struct ospf {
 #define OSPF_LSA_TYPES 9
 
 struct ospf_lsdb {
-	struct replay_list *lsa_list[OSPF_LSA_TYPES];
+	struct replay_nlist *lsa_list[OSPF_LSA_TYPES];
 	unsigned long count;
 	unsigned int checksum;
 	struct ospf_lsa *this_rtr;
@@ -137,6 +138,8 @@ struct route_entry {
 #define WHITESPACE " \n\t"
 
 #define OSPF_WAIT_FOR_DR 10
+
+#define CHECK_BIT(var,pos) ((var) & (1<<((int)log2(pos))))
 
 extern struct replay_config *replay0;
 extern struct ospf *ospf0;

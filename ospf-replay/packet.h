@@ -93,14 +93,14 @@ struct ospf_neighbor;
 void process_packet(int);
 
 void process_hello(void*,u_int32_t,u_int32_t,unsigned int,struct ospf_interface*);
-void process_dbdesc();
+void process_dbdesc(void*,u_int32_t,u_int32_t,unsigned int,struct ospf_interface*);
 void process_lsu();
 void process_lsr();
 void process_lsack();
 void send_hello(struct ospf_interface*,struct ospf_neighbor*);
 void send_dbdesc(struct ospf_neighbor*,u_int32_t);
 void send_lsu();
-void send_lsr();
+void send_lsr(struct ospf_neighbor*);
 void send_lsack();
 
 void build_ospf_packet(u_int32_t,u_int32_t,u_int8_t,void*,int,struct ospf_interface*);

@@ -127,7 +127,7 @@ ospf_lsa_checksum_valid (struct lsa_header *lsa)
 
 int add_lsa(struct lsa_header *header) {
 	// see if already exists
-	struct replay_list *tmp_item;
+	struct replay_nlist *tmp_item;
 	struct ospf_lsa *tmp_lsa;
 	struct lsa_header *tmp_header;
 	int duplicate = FALSE;
@@ -154,6 +154,9 @@ int add_lsa(struct lsa_header *header) {
 					tmp_item = NULL;
 				}
 			}
+			if(header->id.s_addr < tmp_item->key) {
+				tmp_item = NULL;
+			}
 		}
 		if(tmp_item) {
 			tmp_lsa = (struct ospf_lsa*)tmp_item->object;
@@ -165,7 +168,7 @@ int add_lsa(struct lsa_header *header) {
 		struct ospf_lsa *new_lsa = (struct ospf_lsa *) malloc(sizeof(struct ospf_lsa));
 		new_lsa->header = header;
 		gettimeofday(&new_lsa->tv_recv,NULL);
-		ospf0->lsdb->lsa_list[header->type] = add_to_list(ospf0->lsdb->lsa_list[header->type],(struct replay_object *)new_lsa);
+		ospf0->lsdb->lsa_list[header->type] = add_to_nlist(ospf0->lsdb->lsa_list[header->type],(struct replay_object *)new_lsa,(unsigned long long)new_lsa->header->id.s_addr);
 		add_event((struct replay_object *)new_lsa,OSPF_EVENT_LSA_AGING);
 	} else {
 		add_event((struct replay_object *)tmp_lsa,OSPF_EVENT_LSA_AGING);
@@ -174,10 +177,10 @@ int add_lsa(struct lsa_header *header) {
 }
 
 void remove_lsa(struct ospf_lsa *lsa) {
-	struct replay_list *item;
+	struct replay_nlist *item;
 	struct ospf_event *event;
-	item = find_in_list(ospf0->lsdb->lsa_list[lsa->header->type],(struct replay_object *)lsa);
-	remove_from_list(ospf0->lsdb->lsa_list[lsa->header->type],item);
+	item = find_in_nlist(ospf0->lsdb->lsa_list[lsa->header->type],(struct replay_object *)lsa);
+	remove_from_nlist(ospf0->lsdb->lsa_list[lsa->header->type],item);
 	event = find_event((struct replay_object *)lsa,OSPF_EVENT_LSA_AGING);
 	remove_event(event);
 	free(lsa->header);
@@ -185,7 +188,8 @@ void remove_lsa(struct ospf_lsa *lsa) {
 }
 
 struct replay_list* copy_lsalist() {
-	struct replay_list *start, *tmp_item;
+	struct replay_list *start;
+	struct replay_nlist *tmp_item;
 	int i;
 	start=NULL;
 	for(i=0;i<OSPF_LSA_TYPES;i++) {
@@ -196,4 +200,27 @@ struct replay_list* copy_lsalist() {
 		}
 	}
 	return start;
+}
+
+int have_lsa(struct lsa_header *lsahdr) {
+	int have = 0;
+	struct replay_nlist *tmp_item;
+	struct lsa_header *tmphdr;
+
+	if(lsahdr) {
+		tmp_item = ospf0->lsdb->lsa_list[lsahdr->type];
+		while(tmp_item) {
+			tmphdr = (struct lsa_header *)tmp_item->object;
+			if((lsahdr->id.s_addr == tmphdr->id.s_addr)&&(lsahdr->adv_router.s_addr == tmphdr->adv_router.s_addr)) {
+				have = 1;
+			}
+			if(tmp_item->key > (unsigned long long)(lsahdr->id.s_addr)) {
+				tmp_item = NULL;
+			} else {
+				tmp_item = tmp_item->next;
+			}
+		}
+	}
+
+	return have;
 }

@@ -65,7 +65,6 @@ void do_event(struct replay_nlist *item) {
 
 void add_event(struct replay_object *object,u_int8_t type) {
 	struct ospf_event *new,*tmp;
-	struct replay_nlist *new_item;
 
 	if(object) {
 
@@ -99,11 +98,7 @@ void add_event(struct replay_object *object,u_int8_t type) {
 			break;
 		}
 
-		new_item = (struct replay_nlist *) malloc(sizeof(struct replay_nlist));
-		new_item->key = (unsigned long long)new->tv.tv_sec;
-		new_item->next = NULL;
-		new_item->object = (struct replay_object *)new;
-		ospf0->eventlist = add_to_nlist(ospf0->eventlist,new_item);
+		ospf0->eventlist = add_to_nlist(ospf0->eventlist,(struct replay_object *)new,(unsigned long long)new->tv.tv_sec);
 	}
 }
 

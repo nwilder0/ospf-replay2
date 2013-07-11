@@ -154,12 +154,16 @@ int mask2bits(uint32_t mask) {
 	return bits;
 }
 
-struct replay_nlist* add_to_nlist(struct replay_nlist *list,struct replay_nlist *new) {
+struct replay_nlist* add_to_nlist(struct replay_nlist *list,struct replay_object *obj,unsigned long long key) {
 
-	struct replay_nlist *curr, *prev;
+	struct replay_nlist *curr, *prev, *new;
 	curr = list;
 	prev = NULL;
-	if(new) {
+	if(obj) {
+		new = (struct replay_nlist *) malloc(sizeof(struct replay_nlist));
+		new->key = key;
+		new->next = NULL;
+		new->object = obj;
 		if(list) {
 			while(curr && (new->key > curr->key)) {
 				prev = curr;
