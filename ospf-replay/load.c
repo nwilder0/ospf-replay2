@@ -40,6 +40,7 @@ void load_defaults() {
 	ospf0->active_pfxcount = ospf0->ifcount = ospf0->nbrcount = ospf0->pfxcount = 0;
 	ospf0->options = OSPF_DEFAULT_OPTIONS;
 	ospf0->priority = OSPF_DEFAULT_PRIORITY;
+	ospf0->started = 0;
 
 	ospf0->eventlist = ospf0->iflist = ospf0->nbrlist = ospf0->pflist = NULL;
 	ospf0->lsdb->checksum = 0;
@@ -281,4 +282,78 @@ void load_config(const char* filename) {
 	replay_log("load_config: Finished loading config");
 }
 
+void unload_replay() {
+	struct ospf_event *tmp_event;
+	struct ospf_interface *tmp_if;
+	struct ospf_neighbor *tmp_nbr;
+	struct ospf_prefix *tmp_pfx;
+	struct ospf_lsa *tmp_lsa;
+
+	while(ospf0->eventlist) {
+		tmp_event = (struct ospf_event *)ospf0->eventlist->object;
+		if(tmp_event) {
+			remove_event(tmp_event);
+		} else {
+			ospf0->eventlist = remove_from_nlist(ospf0->eventlist,ospf0->eventlist);
+		}
+
+	}
+
+	while(ospf0->iflist) {
+		tmp_if = (struct ospf_interface *)ospf0->iflist->object;
+
+		if(tmp_if) {
+			remove_interface(tmp_if);
+		} else {
+			ospf0->iflist = remove_from_list(ospf0->iflist,ospf0->iflist);
+		}
+	}
+
+		while(ospf0->nbrlist) {
+		tmp_nbr = (struct ospf_neighbor *)ospf0->nbrlist->object;
+
+		if(tmp_nbr) {
+			remove_neighbor(tmp_nbr);
+		} else {
+			ospf0->nbrlist = remove_from_list(ospf0->nbrlist,ospf0->nbrlist);
+		}
+	}
+
+	while(ospf0->pflist) {
+		tmp_pfx = (struct ospf_prefix *)ospf0->pflist->object;
+
+		if(tmp_pfx) {
+			remove_prefix(tmp_pfx);
+		} else {
+			ospf0->pflist = remove_from_list(ospf0->pflist,ospf0->pflist);
+		}
+	}
+
+	//remove lsdb
+	if(ospf0->lsdb) {
+		int i=0;
+		for(i=0;i<OSPF_LSA_TYPES;i++) {
+			while(ospf0->lsdb->lsa_list[i]) {
+				tmp_lsa = (struct ospf_lsa *) ospf0->lsdb->lsa_list[i]->object;
+				if(tmp_lsa) {
+					remove_lsa(tmp_lsa);
+				} else {
+					ospf0->lsdb->lsa_list[i] = remove_from_nlist(ospf0->lsdb->lsa_list[i],ospf0->lsdb->lsa_list[i]);
+				}
+			}
+		}
+		ospf0->lsdb->this_rtr = NULL;
+		free(ospf0->lsdb);
+	}
+
+	//if route table ever added it will need to be freed
+
+	delete_list(replay0->iflist);
+	fclose(replay0->errors);
+	fclose(replay0->events);
+	fclose(replay0->lsdb);
+	fclose(replay0->packets);
+	free(ospf0);
+	free(replay0);
+}
 

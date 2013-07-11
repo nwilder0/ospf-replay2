@@ -65,9 +65,14 @@ int main(int argc, char *argv[])
 		load_config("/tmp/replay.config");
 	}
 	printf("start_listening\n");
-	// start listening for OSPF packets
-	start_listening();
+	set_router_lsa();
 
+	// start listening for OSPF packets
+	ospf0->started = 1;
+	start_listening();
+	ospf0->started = 0;
+
+	unload_replay();
 	return 0;
 }
 

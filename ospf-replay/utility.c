@@ -120,6 +120,30 @@ struct replay_list* remove_from_list(struct replay_list *list, struct replay_lis
 	return list;
 }
 
+void* remove_all_from_list(struct replay_list *list) {
+	struct replay_list *next,*curr;
+	curr=list;
+	while(curr) {
+		next=curr->next;
+		free(curr);
+		curr=next;
+	}
+	return NULL;
+}
+
+void* delete_list(struct replay_list *list) {
+	struct replay_list *next,*curr;
+	curr = list;
+	while(curr) {
+		next = curr->next;
+		free(curr->object);
+		free(curr);
+		curr = next;
+	}
+	return NULL;
+}
+
+
 uint32_t get_net(uint32_t addr, uint32_t mask) {
 
 	uint32_t net_addr;

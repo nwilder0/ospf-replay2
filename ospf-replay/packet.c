@@ -399,8 +399,17 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 
 					//if master and received ack to last then move to loading
 				}
-				if(nbr->state == OSPF_NBRSTATE_LOADING && nbr->lsa_need_list) {
-					send_lsr(nbr);
+				if(nbr->state == OSPF_NBRSTATE_LOADING) {
+					if(nbr->lsa_send_list) {
+						nbr->lsa_send_list = delete_list(nbr->lsa_send_list);
+					}
+					nbr->lsa_send_count = 0;
+					nbr->last_recv_seq = 0;
+					nbr->last_sent_seq = 0;
+					nbr->master = 0;
+					if(nbr->lsa_need_list) {
+						send_lsr(nbr);
+					}
 				}
 			}
 		}

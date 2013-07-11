@@ -51,7 +51,7 @@ void add_neighbor(u_int32_t ip,u_int32_t router_id,struct ospf_interface *ospf_i
 		ospf0->nbrcount++;
 
 		ospf_if->nbrlist = add_to_list(ospf_if->nbrlist,(struct replay_object *)nbr);
-
+		set_router_lsa();
 	}
 }
 
@@ -69,9 +69,18 @@ void remove_neighbor(struct ospf_neighbor *nbr) {
 	item = find_in_list(nbr->ospf_if->nbrlist,(struct replay_object *)nbr);
 	if(item) nbr->ospf_if->nbrlist = remove_from_list(ospf0->nbrlist,item);
 
+	if(nbr->lsa_need_list) {
+		nbr->lsa_need_list = delete_list(nbr->lsa_need_list);
+	}
+
+	if(nbr->lsa_send_list) {
+		nbr->lsa_send_list = delete_list(nbr->lsa_send_list);
+	}
+
 	// what about LSAs from this neighbor?
 
 	free(nbr);
+	set_router_lsa();
 }
 
 struct ospf_neighbor* find_neighbor_by_ip(u_int32_t ip) {

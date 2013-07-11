@@ -60,6 +60,6 @@ struct replay_config {
 
 void load_defaults();
 void load_config(const char*);
-
+void unload_replay();
 
 #endif /* LOAD_H_ */

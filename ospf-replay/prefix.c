@@ -87,6 +87,9 @@ void add_prefix(char* full_string, u_int32_t area) {
 			}
 		}
 	}
+	if(ospf0->started) {
+		set_router_lsa();
+	}
 }
 
 
@@ -126,5 +129,9 @@ void remove_prefix(struct ospf_prefix *ospf_pfx) {
 	}
 
 	free(ospf_pfx);
+	if(ospf0->started) {
+		set_router_lsa();
+	}
+
 }
 

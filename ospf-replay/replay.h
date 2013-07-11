@@ -85,6 +85,9 @@ struct ospf {
 	// ospf router priority
 	u_int8_t priority;
 
+	// ospf process started
+	int started;
+
 };
 
 #define OSPF_DEFAULT_OPTIONS 0

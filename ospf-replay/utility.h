@@ -57,6 +57,10 @@ struct replay_nlist* remove_from_nlist(struct replay_nlist*,struct replay_nlist*
 
 struct replay_nlist* find_in_nlist(struct replay_nlist*,struct replay_object*);
 
+void* remove_all_from_list(struct replay_list*);
+
+void* delete_list(struct replay_list*);
+
 const char* byte_to_binary(int);
 
 uint32_t get_net(uint32_t,uint32_t);

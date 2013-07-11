@@ -93,6 +93,7 @@ struct router_lsa* set_router_lsa() {
 
 	gettimeofday(&lsa->tv_recv,NULL);
 	add_event((struct replay_object *)lsa,OSPF_EVENT_LSA_AGING);
+	add_lsa(ospf0->lsdb->this_rtr->header);
 
 	return this;
 }
@@ -131,6 +132,7 @@ int add_lsa(struct lsa_header *header) {
 	struct ospf_lsa *tmp_lsa;
 	struct lsa_header *tmp_header;
 	int duplicate = FALSE;
+	struct ospf_lsa *new_lsa=NULL;
 
 	tmp_item = ospf0->lsdb->lsa_list[header->type];
 
@@ -165,8 +167,16 @@ int add_lsa(struct lsa_header *header) {
 
 	if(!duplicate) {
 		// add to appropriate array in lsdb
-		struct ospf_lsa *new_lsa = (struct ospf_lsa *) malloc(sizeof(struct ospf_lsa));
-		new_lsa->header = header;
+		if(ospf0->lsdb->this_rtr) {
+			if(ospf0->lsdb->this_rtr->header == header) {
+				new_lsa = ospf0->lsdb->this_rtr;
+			}
+		}
+		if(!new_lsa) {
+			new_lsa = (struct ospf_lsa *) malloc(sizeof(struct ospf_lsa));
+			new_lsa->header = header;
+		}
+
 		gettimeofday(&new_lsa->tv_recv,NULL);
 		ospf0->lsdb->lsa_list[header->type] = add_to_nlist(ospf0->lsdb->lsa_list[header->type],(struct replay_object *)new_lsa,(unsigned long long)new_lsa->header->id.s_addr);
 		add_event((struct replay_object *)new_lsa,OSPF_EVENT_LSA_AGING);
