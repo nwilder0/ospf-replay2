@@ -218,5 +218,6 @@ int add_lsa(struct lsa_header *);
 void remove_lsa(struct ospf_lsa *);
 struct replay_list* copy_lsalist();
 int have_lsa(struct lsa_header *);
+struct ospf_lsa* find_lsa(u_int32_t,u_int32_t,u_char);
 
 #endif /* LSA_H_ */

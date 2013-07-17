@@ -120,6 +120,8 @@ struct replay_list* remove_from_list(struct replay_list *list, struct replay_lis
 	return list;
 }
 
+
+
 void* remove_all_from_list(struct replay_list *list) {
 	struct replay_list *next,*curr;
 	curr=list;
@@ -129,6 +131,10 @@ void* remove_all_from_list(struct replay_list *list) {
 		curr=next;
 	}
 	return NULL;
+}
+
+void* remove_all_from_nlist(struct replay_nlist *list) {
+	return remove_all_from_list((struct replay_list)list);
 }
 
 void* delete_list(struct replay_list *list) {
@@ -241,3 +247,14 @@ struct replay_nlist* find_in_nlist(struct replay_nlist *list,struct replay_objec
 		return found;
 }
 
+struct replay_nlist* merge_nlist(struct replay_nlist *list1, struct replay_nlist *list2) {
+	struct replay_nlist *curr;
+	curr = list2;
+	while(curr) {
+		if(!find_in_nlist(list1),curr->object) {
+			list1 = add_to_nlist(list1,curr->object,curr->key);
+		}
+		curr = curr->next;
+	}
+	return list1;
+}

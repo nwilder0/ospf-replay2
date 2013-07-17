@@ -88,7 +88,7 @@ struct router_lsa* set_router_lsa() {
 		tmp_item = tmp_item->next;
 	}
 
-	this->header.length = 20 + 4 + this->links * 16;
+	this->header.length = htons(sizeof(this));
 	this->header.checksum = ospf_lsa_checksum(&this->header);
 
 	gettimeofday(&lsa->tv_recv,NULL);
@@ -215,22 +215,59 @@ struct replay_list* copy_lsalist() {
 int have_lsa(struct lsa_header *lsahdr) {
 	int have = 0;
 	struct replay_nlist *tmp_item;
-	struct lsa_header *tmphdr;
+	struct lsa_header *tmphdr=NULL;
+	struct ospf_lsa *tmplsa;
 
 	if(lsahdr) {
 		tmp_item = ospf0->lsdb->lsa_list[lsahdr->type];
 		while(tmp_item) {
-			tmphdr = (struct lsa_header *)tmp_item->object;
-			if((lsahdr->id.s_addr == tmphdr->id.s_addr)&&(lsahdr->adv_router.s_addr == tmphdr->adv_router.s_addr)) {
-				have = 1;
+			tmplsa = (struct ospf_lsa *)(tmp_item->object);
+			if(tmplsa) {
+				tmphdr = tmplsa->header;
+				if(tmphdr) {
+					if((lsahdr->id.s_addr == tmphdr->id.s_addr)&&(lsahdr->adv_router.s_addr == tmphdr->adv_router.s_addr)) {
+						have = 1;
+					}
+					if((tmp_item->key > (unsigned long long)(lsahdr->id.s_addr))||have) {
+						tmp_item = NULL;
+					}
+				}
 			}
-			if(tmp_item->key > (unsigned long long)(lsahdr->id.s_addr)) {
-				tmp_item = NULL;
-			} else {
+			if(tmp_item) {
 				tmp_item = tmp_item->next;
 			}
+			tmphdr = NULL;
 		}
 	}
 
 	return have;
+}
+
+struct ospf_lsa* find_lsa(u_int32_t adv_router, u_int32_t id, u_char type) {
+	struct replay_nlist *tmp_item;
+	struct lsa_header *tmphdr=NULL;
+	struct ospf_lsa *found=NULL,*tmplsa;
+
+	tmp_item = ospf0->lsdb->lsa_list[type];
+	while(tmp_item) {
+		tmplsa = (struct ospf_lsa *)tmp_item->object;
+		if(tmplsa) {
+			tmphdr = tmplsa->header;
+			if(tmphdr) {
+				if((id == tmphdr->id.s_addr)&&(adv_router == tmphdr->adv_router.s_addr)) {
+					found = tmplsa;
+				}
+				if((tmp_item->key > (unsigned long long)id)||found) {
+					tmp_item = NULL;
+				}
+			}
+		}
+		if(tmp_item) {
+			tmp_item = tmp_item->next;
+		}
+		tmphdr = NULL;
+	}
+
+	return found;
+
 }

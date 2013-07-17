@@ -57,7 +57,11 @@ struct replay_nlist* remove_from_nlist(struct replay_nlist*,struct replay_nlist*
 
 struct replay_nlist* find_in_nlist(struct replay_nlist*,struct replay_object*);
 
+struct replay_nlist* merge_nlist(struct replay_nlist*,struct replay_nlist*);
+
 void* remove_all_from_list(struct replay_list*);
+
+void* remove_all_from_nlist(struct replay_nlist*);
 
 void* delete_list(struct replay_list*);
 

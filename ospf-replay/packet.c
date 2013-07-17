@@ -42,6 +42,15 @@ void process_packet(int socket) {
 		case OSPF_MESG_DBDESC:
 			process_dbdesc(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
 			break;
+		case OSPF_MESG_LSR:
+			process_lsr(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+			break;
+		case OSPF_MESG_LSU:
+			process_lsu(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+			break;
+		case OSPF_MESG_LSACK:
+			process_lsack(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+			break;
 		}
 	} else {
 		//error reading in packet
@@ -67,6 +76,7 @@ void send_hello(struct ospf_interface *ospf_if,struct ospf_neighbor *neighbor) {
 	nbrcount = ospf0->nbrcount;
 	size = sizeof(struct ospfhdr)+sizeof(struct ospf_hello)+((nbrcount-1)*sizeof(u_int32_t));
 	packet = malloc(size);
+	bzero((char *) &packet, size);
 	hello = (struct ospf_hello *)(packet + sizeof(struct ospfhdr));
 
 	hello->bdr.s_addr = ospf_if->bdr.s_addr;
@@ -221,6 +231,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 	if(nbr->state==OSPF_NBRSTATE_EXSTART) {
 		size = sizeof(struct ospfhdr)+sizeof(struct ospf_dbdesc);
 		packet = malloc(size);
+		bzero((char *) &packet, size);
 		dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 		dbdesc->flags = OSPF_DBDESC_FLAG_INIT + OSPF_DBDESC_FLAG_MORE + OSPF_DBDESC_FLAG_MASTER;
 		gettimeofday(&tv,NULL);
@@ -252,11 +263,12 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 				} else {
 					size = sizeof(struct ospfhdr)+sizeof(struct ospf_dbdesc);
 					packet = malloc(size);
+					bzero((char *) &packet, size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 					dbdesc->flags = nbr->master;
 					dbdesc->dd_seqnum = ++(nbr->last_sent_seq);
 				}
-			// if no ack, resent last dbdesc
+			// if no ack, resend last dbdesc
 			} else {
 				if(nbr->lsa_send_list) {
 					nbr->lsa_send_count = ospf0->lsdb->count;
@@ -280,6 +292,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 				} else {
 					size = sizeof(struct ospfhdr)+sizeof(struct ospf_dbdesc);
 					packet = malloc(size);
+					bzero((char *) &packet, size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 					dbdesc->flags = nbr->master;
 					dbdesc->dd_seqnum = nbr->last_sent_seq;
@@ -291,6 +304,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 				//send ack
 				size = sizeof(struct ospfhdr)+sizeof(struct ospf_dbdesc);
 				packet = malloc(size);
+				bzero((char *) &packet, size);
 				dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 				dbdesc->flags = nbr->master;
 				dbdesc->dd_seqnum = db_seq_num;
@@ -324,6 +338,9 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 
 		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_DBDESC,packet,size,nbr->ospf_if);
 		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
+		if(nbr->master) {
+			add_event((struct replay_object *)nbr,OSPF_EVENT_DBDESC_RETX);
+		}
 	}
 
 }
@@ -348,6 +365,10 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 			dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 			if(dbdesc) {
 				nbr->last_recv_seq = dbdesc->dd_seqnum;
+				if((nbr->last_recv_seq==nbr->last_sent_seq)&&(nbr->master)) {
+					//find retx event and remove it
+					find_and_remove_event((struct replay_object *)nbr,OSPF_EVENT_DBDESC_RETX);
+				}
 				if(nbr->state == OSPF_NBRSTATE_EXSTART) {
 					//calc who is master
 					if(dbdesc->flags == OSPF_DBDESC_FLAG_MORE + OSPF_DBDESC_FLAG_INIT + OSPF_DBDESC_FLAG_MASTER) {
@@ -409,6 +430,8 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 					nbr->master = 0;
 					if(nbr->lsa_need_list) {
 						send_lsr(nbr);
+					} else {
+						nbr->state = OSPF_NBRSTATE_FULL;
 					}
 				}
 			}
@@ -417,5 +440,212 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 }
 
 void send_lsr(struct ospf_neighbor *nbr) {
+	struct ospf_lsa *lsa;
+	struct lsa_header *lsahdr;
+	struct ospf_lsr *lsr;
+	void *packet;
+	int size;
+	struct in_addr src_addr,remote_addr;
+
+	if(nbr->lsa_need_list) {
+
+		src_addr.s_addr = nbr->ospf_if->iface->ip.s_addr;
+		remote_addr.s_addr = nbr->ip.s_addr;
+
+		lsahdr = (struct lsa_header *)(nbr->lsa_need_list->object);
+		size = sizeof(struct ospfhdr) + sizeof(struct ospf_lsr);
+		packet = malloc(size);
+		bzero((char *) &packet, size);
+
+		lsr = (struct ospf_lsr *)(packet+sizeof(struct ospfhdr));
+		lsr->advert_rtr = lsahdr->adv_router;
+		lsr->lsa_id = lsahdr->id.s_addr;
+		lsr->lsa_type = (u_int32_t)(lsahdr->type);
+
+		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSR,packet,size,nbr->ospf_if);
+		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
+		//add event to wait for LSU or resend lsr
+		add_event((struct replay_object *)nbr,OSPF_EVENT_LSR_RETX);
+
+	} else {
+		nbr->state = OSPF_NBRSTATE_FULL;
+	}
+}
+
+void process_lsr(void *packet,u_int32_t from,u_int32_t to,unsigned int size,struct ospf_interface *oiface) {
+	struct ospf_lsr *lsr;
+	struct ospfhdr *hdr;
+	struct ospf_lsa *lsa;
+	struct lsa_header *lsa_header;
+	struct ospf_neighbor *nbr;
+	struct replay_nlist *tmp_item;
+
+	nbr=find_neighbor_by_ip(from);
+	if(nbr) {
+		if(nbr->ospf_if != oiface) {
+			nbr = NULL;
+		}
+	}
+	if(packet && (size>=(sizeof(struct ospfhdr)+sizeof(struct ospf_lsr))) && nbr) {
+		hdr = (struct ospfhdr *)packet;
+		lsr = (struct ospf_lsr *)(packet+sizeof(struct ospfhdr));
+		lsa = find_lsa(lsr->advert_rtr,lsr->lsa_id,lsr->lsa_type);
+		if(lsa&&(nbr->state>=OSPF_NBRSTATE_EXSTART)) {
+			tmp_item = add_to_nlist(NULL,(struct replay_object)lsa,(unsigned long long)(lsa->header->id.s_addr));
+			send_lsu(nbr,tmp_item,OSPF_LSU_NOTRETX);
+			remove_all_from_nlist(tmp_item);
+		}
+	}
+}
+
+void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t retx) {
+	struct replay_nlist *tmp_item;
+	struct ospf_lsa *tmp_lsa;
+	struct lsa_header *lsahdr;
+	struct ospf_lsu *lsu;
+	void *packet;
+	int size, lsa_count=0, lsa_ptr=0, i;
+	struct in_addr src_addr,remote_addr;
+	struct ospf_header *hdr;
+	struct ospf_neighbor *tmp_nbr;
+
+	if(!lsalist) {
+		lsalist = nbr->lsu_lsa_list;
+	}
+
+	if(nbr&&lsalist) {
+		src_addr.s_addr = nbr->ospf_if->iface->ip.s_addr;
+		if(retx) {
+			remote_addr.s_addr = nbr->ip.s_addr;
+		} else {
+			inet_pton(AF_INET,OSPF_MULTICAST_ALLROUTERS,&remote_addr);
+		}
+
+		size = sizeof(struct ospfhdr) + sizeof(struct ospf_lsu);
+
+		tmp_item = lsalist;
+		while(tmp_item) {
+
+			tmp_lsa = (struct ospf_lsa *)(tmp_item->object);
+			if(tmp_lsa) {
+				lsahdr = tmp_lsa->header;
+				if(lsahdr) {
+					lsa_count++;
+					size = size + ntohs(lsahdr->length);
+				}
+			}
+			tmp_item = tmp_item->next;
+		}
+
+		packet = malloc(size);
+		bzero((char *) &packet, size);
+		lsu = (struct ospf_lsu *)(packet+sizeof(struct ospfhdr));
+
+		//build lsu packet
+		lsu->lsa_num = htonl(lsa_count);
+		lsa_ptr = sizeof(struct ospfhdr)+sizeof(struct ospf_lsu);
+		tmp_item = lsalist;
+
+		while(tmp_item) {
+
+			tmp_lsa = (struct ospf_lsa *)(tmp_item->object);
+			if(tmp_lsa) {
+				lsahdr = tmp_lsa->header;
+				if(lsahdr) {
+					memcpy(packet+lsa_ptr,lsahdr,ntohs(lsahdr->length));
+					lsa_ptr = lsa_ptr + ntohs(lsahdr->length);
+				}
+			}
+			tmp_item = tmp_item->next;
+		}
+
+		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSR,packet,size,nbr->ospf_if);
+		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
+
+		//add event to wait for LSACK or resend unicast LSU
+		if(retx) {
+			nbr->lsu_lsa_list = merge_nlist(nbr->lsu_lsa_list,lsalist);
+			add_event((struct replay_object *)nbr,OSPF_EVENT_LSU_ACK);
+		} else {
+			tmp_item = nbr->ospf_if->nbrlist;
+			while(tmp_item) {
+				tmp_nbr = (struct ospf_neighbor *)(tmp_item->object);
+				if(tmp_nbr) {
+					tmp_nbr->lsu_lsa_list = merge_nlist(nbr->lsu_lsa_list,lsalist);
+					add_event((struct replay_object *)tmp_nbr,OSPF_EVENT_LSU_ACK);
+					tmp_item = tmp_item->next;
+				}
+			}
+
+		}
+	}
 
 }
+
+void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,struct ospf_interface *oiface) {
+	//ignore if from nbr who's < exstart/ignore all LSAs who aren't updated
+	//remove updated LSAs from lsa_need_list
+	//drop lsr retx event
+	//regen lsr if list not null
+	//flood out all updated LSAs to all ospf_interfaces where 1 nbr is >= exstart
+	//send lsack for all (unless nbr is <exstart)
+}
+
+void send_lsack(struct ospf_neighbor *nbr, struct replay_nlist *lsalist) {
+	struct replay_nlist *tmp_item;
+	struct ospf_lsa *tmp_lsa;
+	struct lsa_header *lsahdr;
+	struct ospf_lsu *lsu;
+	void *packet;
+	int size, lsa_count=0, lsa_ptr=0, i;
+	struct in_addr src_addr,remote_addr;
+	struct ospf_header *hdr;
+	struct ospf_neighbor *tmp_nbr;
+
+	if(nbr&&lsalist) {
+
+		src_addr.s_addr = nbr->ospf_if->iface->ip.s_addr;
+		remote_addr.s_addr = nbr->ip.s_addr;
+
+		tmp_item = lsalist;
+		while(tmp_item) {
+
+			tmp_lsa = (struct ospf_lsa *)(tmp_item->object);
+			if(tmp_lsa) {
+				lsahdr = tmp_lsa->header;
+				if(lsahdr) {
+					lsa_count++;
+				}
+			}
+			tmp_item = tmp_item->next;
+		}
+		size = sizeof(struct ospfhdr) + lsa_count*sizeof(struct lsa_header);
+
+		packet = malloc(size);
+		bzero((char *) &packet, size);
+		lsa_ptr = sizeof(struct ospfhdr);
+
+		tmp_item = lsalist;
+		while(tmp_item) {
+			tmp_lsa = (struct ospf_lsa *)(tmp_item->object);
+			if(tmp_lsa) {
+				lsahdr = tmp_lsa->header;
+				if(lsahdr) {
+					memcpy(packet+lsa_ptr,lsahdr,sizeof(struct lsa_header));
+					lsa_ptr = lsa_ptr + sizeof(struct lsa_header);
+				}
+			}
+			tmp_item = tmp_item->next;
+		}
+
+		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSR,packet,size,nbr->ospf_if);
+		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
+
+	}
+
+}
+
+void process_lsack(void *packet,u_int32_t from,u_int32_t to,unsigned int size,struct ospf_interface *oiface) {
+	// remove from lsu_lsa_list, if lsu list is empty remove event
+}
+

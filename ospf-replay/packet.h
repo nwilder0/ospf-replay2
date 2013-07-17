@@ -90,18 +90,21 @@ struct ospf_neighbor;
 #define OSPF_DBDESC_FLAG_MORE 2
 #define OSPF_DBDESC_FLAG_MASTER 1
 
+#define OSPF_LSU_NOTRETX 0
+#define OSPF_LSU_RETX 1
+
 void process_packet(int);
 
 void process_hello(void*,u_int32_t,u_int32_t,unsigned int,struct ospf_interface*);
 void process_dbdesc(void*,u_int32_t,u_int32_t,unsigned int,struct ospf_interface*);
-void process_lsu();
-void process_lsr();
-void process_lsack();
+void process_lsu(void*,u_int32_t,u_int32_t,unsigned int,struct ospf_interface*);
+void process_lsr(void*,u_int32_t,u_int32_t,unsigned int,struct ospf_interface*);
+void process_lsack(void*,u_int32_t,u_int32_t,unsigned int,struct ospf_interface*);
 void send_hello(struct ospf_interface*,struct ospf_neighbor*);
 void send_dbdesc(struct ospf_neighbor*,u_int32_t);
-void send_lsu();
+void send_lsu(struct ospf_neighbor*,struct replay_nlist*,u_int8_t);
 void send_lsr(struct ospf_neighbor*);
-void send_lsack();
+void send_lsack(struct ospf_neighbor*,struct replay_nlist*);
 
 void build_ospf_packet(u_int32_t,u_int32_t,u_int8_t,void*,int,struct ospf_interface*);
 void send_packet(struct ospf_interface*,void*,u_int32_t,int);

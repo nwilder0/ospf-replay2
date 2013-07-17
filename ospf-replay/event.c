@@ -57,6 +57,18 @@ void do_event(struct replay_nlist *item) {
 			oiface->dr.s_addr = ospf0->router_id.s_addr;
 		}
 		break;
+
+	case OSPF_EVENT_DBDESC_RETX:
+		send_dbdesc((struct ospf_neighbor *)(event->object),NULL);
+		break;
+
+	case OSPF_EVENT_LSR_RETX:
+		send_lsr((struct ospf_neighbor *)(event->object));
+		break;
+
+	case OSPF_EVENT_LSU_ACK:
+		send_lsu((struct ospf_neighbor *)(event->object),NULL,OSPF_LSU_RETX);
+		break;
 	}
 
 	ospf0->eventlist = remove_from_nlist(ospf0->eventlist,item);
@@ -86,6 +98,7 @@ void add_event(struct replay_object *object,u_int8_t type) {
 				remove_event(tmp);
 			}
 			break;
+
 		case OSPF_EVENT_NBR_DEAD:
 			new->tv.tv_sec = new->tv.tv_sec + ospf0->dead_interval;
 			tmp = find_event(object,type);
@@ -93,9 +106,17 @@ void add_event(struct replay_object *object,u_int8_t type) {
 				remove_event(tmp);
 			}
 			break;
+
 		case OSPF_EVENT_NO_DR:
 			new->tv.tv_sec = new->tv.tv_sec + OSPF_WAIT_FOR_DR;
 			break;
+
+		case OSPF_EVENT_DBDESC_RETX:
+		case OSPF_EVENT_LSR_RETX:
+		case OSPF_EVENT_LSU_ACK:
+			new->tv.tv_sec = new->tv.tv_sec + ospf0->retransmit_interval;
+			break;
+
 		}
 
 		ospf0->eventlist = add_to_nlist(ospf0->eventlist,(struct replay_object *)new,(unsigned long long)new->tv.tv_sec);
@@ -145,4 +166,12 @@ void remove_object_events(struct replay_object *object) {
 		curr = curr->next;
 	}
 
+}
+
+void find_and_remove_event(struct replay_object *obj, u_int8_t type) {
+	struct ospf_event *found;
+	found = find_event(obj,type);
+	if(found) {
+		remove_event(found);
+	}
 }

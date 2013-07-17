@@ -41,6 +41,8 @@ struct ospf_neighbor {
 	unsigned long lsa_send_count;
 	struct replay_list *lsa_need_list;
 	unsigned long lsa_need_count;
+	struct replay_nlist *lsu_lsa_list;
+	unsigned long lsu_lsa_count;
 	struct timeval last_heard;
 };
 
