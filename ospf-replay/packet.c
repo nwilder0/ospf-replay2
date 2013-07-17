@@ -442,7 +442,7 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 }
 
 void send_lsr(struct ospf_neighbor *nbr) {
-	struct ospf_lsa *lsa;
+
 	struct lsa_header *lsahdr;
 	struct ospf_lsr *lsr;
 	void *packet;
@@ -460,7 +460,7 @@ void send_lsr(struct ospf_neighbor *nbr) {
 		bzero((char *) &packet, size);
 
 		lsr = (struct ospf_lsr *)(packet+sizeof(struct ospfhdr));
-		lsr->advert_rtr = lsahdr->adv_router;
+		lsr->advert_rtr = lsahdr->adv_router.s_addr;
 		lsr->lsa_id = lsahdr->id.s_addr;
 		lsr->lsa_type = (u_int32_t)(lsahdr->type);
 
@@ -476,11 +476,9 @@ void send_lsr(struct ospf_neighbor *nbr) {
 
 void process_lsr(void *packet,u_int32_t from,u_int32_t to,unsigned int size,struct ospf_interface *oiface) {
 	struct ospf_lsr *lsr;
-	struct ospfhdr *hdr;
 	struct ospf_lsa *lsa;
-	struct lsa_header *lsa_header;
 	struct ospf_neighbor *nbr;
-	struct replay_nlist *tmp_item;
+	struct replay_nlist *tmp_item=NULL;
 
 	nbr=find_neighbor_by_ip(from);
 	if(nbr) {
@@ -489,11 +487,10 @@ void process_lsr(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 		}
 	}
 	if(packet && (size>=(sizeof(struct ospfhdr)+sizeof(struct ospf_lsr))) && nbr) {
-		hdr = (struct ospfhdr *)packet;
 		lsr = (struct ospf_lsr *)(packet+sizeof(struct ospfhdr));
 		lsa = find_lsa(lsr->advert_rtr,lsr->lsa_id,lsr->lsa_type);
 		if(lsa&&(nbr->state>=OSPF_NBRSTATE_EXSTART)) {
-			tmp_item = add_to_nlist(NULL,(struct replay_object)lsa,(unsigned long long)(lsa->header->id.s_addr));
+			tmp_item = add_to_nlist(tmp_item,(struct replay_object *)lsa,(unsigned long long)(lsa->header->id.s_addr));
 			send_lsu(nbr,tmp_item,OSPF_LSU_NOTRETX);
 			remove_all_from_nlist(tmp_item);
 		}
@@ -501,14 +498,15 @@ void process_lsr(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 }
 
 void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t retx) {
-	struct replay_nlist *tmp_item;
+	struct replay_nlist *tmp_nitem;
+	struct replay_list *tmp_item;
 	struct ospf_lsa *tmp_lsa;
 	struct lsa_header *lsahdr;
 	struct ospf_lsu *lsu;
 	void *packet;
-	int size, lsa_count=0, lsa_ptr=0, i;
+	int size, lsa_count=0;
+	long long lsa_ptr=0;
 	struct in_addr src_addr,remote_addr;
-	struct ospf_header *hdr;
 	struct ospf_neighbor *tmp_nbr;
 
 	if(!lsalist) {
@@ -525,10 +523,10 @@ void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t re
 
 		size = sizeof(struct ospfhdr) + sizeof(struct ospf_lsu);
 
-		tmp_item = lsalist;
-		while(tmp_item) {
+		tmp_nitem = lsalist;
+		while(tmp_nitem) {
 
-			tmp_lsa = (struct ospf_lsa *)(tmp_item->object);
+			tmp_lsa = (struct ospf_lsa *)(tmp_nitem->object);
 			if(tmp_lsa) {
 				lsahdr = tmp_lsa->header;
 				if(lsahdr) {
@@ -536,7 +534,7 @@ void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t re
 					size = size + ntohs(lsahdr->length);
 				}
 			}
-			tmp_item = tmp_item->next;
+			tmp_nitem = tmp_nitem->next;
 		}
 
 		packet = malloc(size);
@@ -546,11 +544,11 @@ void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t re
 		//build lsu packet
 		lsu->lsa_num = htonl(lsa_count);
 		lsa_ptr = sizeof(struct ospfhdr)+sizeof(struct ospf_lsu);
-		tmp_item = lsalist;
+		tmp_nitem = lsalist;
 
-		while(tmp_item) {
+		while(tmp_nitem) {
 
-			tmp_lsa = (struct ospf_lsa *)(tmp_item->object);
+			tmp_lsa = (struct ospf_lsa *)(tmp_nitem->object);
 			if(tmp_lsa) {
 				lsahdr = tmp_lsa->header;
 				if(lsahdr) {
@@ -558,7 +556,7 @@ void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t re
 					lsa_ptr = lsa_ptr + ntohs(lsahdr->length);
 				}
 			}
-			tmp_item = tmp_item->next;
+			tmp_nitem = tmp_nitem->next;
 		}
 
 		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSR,packet,size,nbr->ospf_if);
@@ -573,10 +571,12 @@ void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t re
 			while(tmp_item) {
 				tmp_nbr = (struct ospf_neighbor *)(tmp_item->object);
 				if(tmp_nbr) {
-					tmp_nbr->lsu_lsa_list = merge_nlist(nbr->lsu_lsa_list,lsalist);
-					add_event((struct replay_object *)tmp_nbr,OSPF_EVENT_LSU_ACK);
-					tmp_item = tmp_item->next;
+					if(tmp_nbr->state>=OSPF_NBRSTATE_EXSTART) {
+						tmp_nbr->lsu_lsa_list = merge_nlist(nbr->lsu_lsa_list,lsalist);
+						add_event((struct replay_object *)tmp_nbr,OSPF_EVENT_LSU_ACK);
+					}
 				}
+				tmp_item = tmp_item->next;
 			}
 
 		}
@@ -585,14 +585,13 @@ void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t re
 }
 
 void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,struct ospf_interface *oiface) {
-	struct ospf_lsu *lsu;
-	struct ospfhdr *hdr;
 	struct ospf_lsa *lsa;
 	struct lsa_header *lsahdr,*new_hdr,*need_hdr;
 	struct ospf_neighbor *nbr,*tmp_nbr;
-	struct replay_nlist *tmp_nitem,*updated=NULL;
-	struct replay_list *tmp_item,*found,*tmp_item2;
-	int lsa_ptr=0,duplicate=0,ignore=0,send=0;
+	struct replay_nlist *updated=NULL;
+	struct replay_list *tmp_item,*tmp_item2;
+	long long lsa_ptr=0;
+	int ignore=0,send=0;
 	struct timeval now,orig;
 	struct ospf_interface *tmp_if;
 
@@ -606,9 +605,8 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 	if(nbr&&oiface&&packet) {
 		if(nbr->state>=OSPF_NBRSTATE_EXSTART) {
 		//ignore if from nbr who's < exstart
-			lsu = (struct ospf_lsu *)(packet+sizeof(struct ospfhdr));
-			lsa_ptr = packet + sizeof(struct ospfhdr) + sizeof(struct ospf_lsu);
-			while(lsa_ptr<(packet+size)) {
+			lsa_ptr = (long long)packet + sizeof(struct ospfhdr) + sizeof(struct ospf_lsu);
+			while(lsa_ptr<((long long)packet+size)) {
 				lsahdr = (struct lsa_header *)(packet+lsa_ptr);
 				lsahdr->ls_age = lsahdr->ls_age + ospf0->transmit_delay;
 				lsa = find_lsa(lsahdr->adv_router.s_addr,lsahdr->id.s_addr,lsahdr->type);
@@ -633,7 +631,7 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 						need_hdr = (struct lsa_header *)(tmp_item->object);
 						if(need_hdr) {
 							if((need_hdr->adv_router.s_addr==new_hdr->adv_router.s_addr)&&(need_hdr->id.s_addr==new_hdr->id.s_addr)&&(need_hdr->type==new_hdr->type)) {
-								nbr->lsa_need_list = remove_from_list(nbr->lsa_need_list,(struct replay_object *)need_hdr);
+								nbr->lsa_need_list = remove_from_list(nbr->lsa_need_list,tmp_item);
 								find_and_remove_event((struct replay_object *)nbr,OSPF_EVENT_LSR_RETX);
 								tmp_item = NULL;
 							}
@@ -688,12 +686,10 @@ void send_lsack(struct ospf_neighbor *nbr, struct replay_nlist *lsalist) {
 	struct replay_nlist *tmp_item;
 	struct ospf_lsa *tmp_lsa;
 	struct lsa_header *lsahdr;
-	struct ospf_lsu *lsu;
 	void *packet;
-	int size, lsa_count=0, lsa_ptr=0, i;
+	int size, lsa_count=0;
+	long long lsa_ptr=0;
 	struct in_addr src_addr,remote_addr;
-	struct ospf_header *hdr;
-	struct ospf_neighbor *tmp_nbr;
 
 	if(nbr&&lsalist) {
 
@@ -739,12 +735,11 @@ void send_lsack(struct ospf_neighbor *nbr, struct replay_nlist *lsalist) {
 }
 
 void process_lsack(void *packet,u_int32_t from,u_int32_t to,unsigned int size,struct ospf_interface *oiface) {
-	int lsa_count,lsa_ptr=0,found=0;
+	long long lsa_ptr=0;
 	struct lsa_header *hdr,*tmp_hdr;
-	struct ospfhdr *ospf_hdr;
 	struct replay_nlist *tmp_item,*next;
 	struct ospf_neighbor *nbr;
-	struct ospf_lsa *lsa,*tmp_lsa;
+	struct ospf_lsa *tmp_lsa;
 
 	nbr=find_neighbor_by_ip(from);
 	if(nbr) {
@@ -754,9 +749,9 @@ void process_lsack(void *packet,u_int32_t from,u_int32_t to,unsigned int size,st
 	}
 
 	if(packet&&size&&oiface&&nbr) {
-		lsa_count = (size-sizeof(struct ospfhdr))/(sizeof(struct lsa_header));
-		lsa_ptr = packet + sizeof(struct ospfhdr);
-		while((lsa_ptr+sizeof(struct lsa_header))<=(packet+size)) {
+
+		lsa_ptr = (long long)packet + sizeof(struct ospfhdr);
+		while((lsa_ptr+sizeof(struct lsa_header))<=((long long)packet+size)) {
 			hdr = (struct lsa_header *)(packet + lsa_ptr);
 			tmp_item = nbr->lsu_lsa_list;
 			while(tmp_item) {

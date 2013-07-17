@@ -60,7 +60,7 @@ void do_event(struct replay_nlist *item) {
 		break;
 
 	case OSPF_EVENT_DBDESC_RETX:
-		send_dbdesc((struct ospf_neighbor *)(event->object),NULL);
+		send_dbdesc((struct ospf_neighbor *)(event->object),0);
 		break;
 
 	case OSPF_EVENT_LSR_RETX:

@@ -179,7 +179,7 @@ struct ospf_lsa* add_lsa(struct lsa_header *header) {
 			new_lsa = (struct ospf_lsa *) malloc(sizeof(struct ospf_lsa));
 			new_lsa->header = header;
 			gettimeofday(&new_lsa->tv_recv,NULL);
-			new_lsa->tv_orig.tv_sec = new_lsa->tv_recv - ntohs(new_lsa->header->ls_age);
+			new_lsa->tv_orig.tv_sec = new_lsa->tv_recv.tv_sec - ntohs(new_lsa->header->ls_age);
 		}
 
 
