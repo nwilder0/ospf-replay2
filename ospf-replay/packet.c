@@ -646,6 +646,54 @@ void send_lsack(struct ospf_neighbor *nbr, struct replay_nlist *lsalist) {
 }
 
 void process_lsack(void *packet,u_int32_t from,u_int32_t to,unsigned int size,struct ospf_interface *oiface) {
-	// remove from lsu_lsa_list, if lsu list is empty remove event
+	int lsa_count,lsa_ptr=0,found=0;
+	struct lsa_header *hdr,*tmp_hdr;
+	struct ospfhdr *ospf_hdr;
+	struct replay_nlist *tmp_item,*next;
+	struct ospf_neighbor *nbr;
+	struct ospf_lsa *lsa,*tmp_lsa;
+
+	nbr=find_neighbor_by_ip(from);
+	if(nbr) {
+		if(nbr->ospf_if != oiface) {
+			nbr = NULL;
+		}
+	}
+
+	if(packet&&size&&oiface&&nbr) {
+		lsa_count = (size-sizeof(struct ospfhdr))/(sizeof(struct lsa_header));
+		lsa_ptr = packet + sizeof(struct ospfhdr);
+		while((lsa_ptr+sizeof(struct lsa_header))<=(packet+size)) {
+			hdr = (struct lsa_header *)(packet + lsa_ptr);
+			tmp_item = nbr->lsu_lsa_list;
+			while(tmp_item) {
+				next = tmp_item->next;
+				tmp_lsa = (struct ospf_lsa *)(tmp_item->object);
+				if(tmp_lsa) {
+					tmp_hdr = tmp_lsa->header;
+					if(tmp_hdr) {
+						if(hdr->checksum==tmp_hdr->checksum) {
+							nbr->lsu_lsa_list = remove_from_nlist(nbr->lsu_lsa_list,tmp_item);
+							tmp_item = NULL;
+						} else {
+							if(tmp_item->key>(unsigned long long)(hdr->id.s_addr)) {
+								tmp_item = NULL;
+							}
+						}
+					}
+				}
+				if(tmp_item) {
+					tmp_item = next;
+				}
+			}
+			lsa_ptr = lsa_ptr + sizeof(struct lsa_header);
+		}
+
+		// remove from lsu_lsa_list, if lsu list is empty remove event
+		if(nbr->lsu_lsa_list) {
+			find_and_remove_event((struct replay_object *)nbr,OSPF_EVENT_LSU_ACK);
+		}
+
+	}
 }
 
