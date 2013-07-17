@@ -391,6 +391,8 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 								if(!have_lsa(lsahdr)) {
 									//add to needed lsa list
 									need_lsa = (struct lsa_header *) malloc(sizeof(struct lsa_header));
+									bzero((char *) &need_lsa, sizeof(struct lsa_header));
+									memcpy(need_lsa,lsahdr,sizeof(struct lsa_header));
 									nbr->lsa_need_list = add_to_list(nbr->lsa_need_list,(struct replay_object *)need_lsa);
 									nbr->lsa_need_count++;
 								}
@@ -583,12 +585,103 @@ void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t re
 }
 
 void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,struct ospf_interface *oiface) {
-	//ignore if from nbr who's < exstart/ignore all LSAs who aren't updated
-	//remove updated LSAs from lsa_need_list
-	//drop lsr retx event
-	//regen lsr if list not null
-	//flood out all updated LSAs to all ospf_interfaces where 1 nbr is >= exstart
-	//send lsack for all (unless nbr is <exstart)
+	struct ospf_lsu *lsu;
+	struct ospfhdr *hdr;
+	struct ospf_lsa *lsa;
+	struct lsa_header *lsahdr,*new_hdr,*need_hdr;
+	struct ospf_neighbor *nbr,*tmp_nbr;
+	struct replay_nlist *tmp_nitem,*updated=NULL;
+	struct replay_list *tmp_item,*found,*tmp_item2;
+	int lsa_ptr=0,duplicate=0,ignore=0,send=0;
+	struct timeval now,orig;
+	struct ospf_interface *tmp_if;
+
+	nbr=find_neighbor_by_ip(from);
+	if(nbr) {
+		if(nbr->ospf_if != oiface) {
+			nbr = NULL;
+		}
+	}
+	gettimeofday(&now,NULL);
+	if(nbr&&oiface&&packet) {
+		if(nbr->state>=OSPF_NBRSTATE_EXSTART) {
+		//ignore if from nbr who's < exstart
+			lsu = (struct ospf_lsu *)(packet+sizeof(struct ospfhdr));
+			lsa_ptr = packet + sizeof(struct ospfhdr) + sizeof(struct ospf_lsu);
+			while(lsa_ptr<(packet+size)) {
+				lsahdr = (struct lsa_header *)(packet+lsa_ptr);
+				lsahdr->ls_age = lsahdr->ls_age + ospf0->transmit_delay;
+				lsa = find_lsa(lsahdr->adv_router.s_addr,lsahdr->id.s_addr,lsahdr->type);
+				orig.tv_sec = now.tv_sec - lsahdr->ls_age;
+				if(lsa) {
+					if((lsa->tv_orig.tv_sec+REPLAY_LSA_AGE_MARGIN)>orig.tv_sec) {
+						ignore = 1;
+					} else {
+						//ensure proper removal out of any lists?
+						remove_lsa(lsa);
+					}
+				}
+				if(!ignore) {
+					new_hdr = (struct lsa_header *)malloc(ntohs(lsahdr->length));
+					memcpy(new_hdr,lsahdr,ntohs(lsahdr->length));
+					lsa = add_lsa(new_hdr);
+					if(lsa) {
+						updated = add_to_nlist(updated,(struct replay_object *)lsa,new_hdr->id.s_addr);
+					}
+					tmp_item = nbr->lsa_need_list;
+					while(tmp_item) {
+						need_hdr = (struct lsa_header *)(tmp_item->object);
+						if(need_hdr) {
+							if((need_hdr->adv_router.s_addr==new_hdr->adv_router.s_addr)&&(need_hdr->id.s_addr==new_hdr->id.s_addr)&&(need_hdr->type==new_hdr->type)) {
+								nbr->lsa_need_list = remove_from_list(nbr->lsa_need_list,(struct replay_object *)need_hdr);
+								find_and_remove_event((struct replay_object *)nbr,OSPF_EVENT_LSR_RETX);
+								tmp_item = NULL;
+							}
+						}
+						if(tmp_item) {
+							tmp_item = tmp_item->next;
+						}
+					}
+				}
+
+				lsa_ptr = lsa_ptr + ntohs(lsahdr->length);
+			}
+			if(nbr->lsa_need_list) {
+				send_lsr(nbr);
+			} else {
+				nbr->state = OSPF_NBRSTATE_FULL;
+			}
+
+			tmp_item = ospf0->iflist;
+			while(tmp_item) {
+				tmp_if = (struct ospf_interface *)(tmp_item->object);
+				if(tmp_if) {
+					tmp_item2 = tmp_if->nbrlist;
+					send = 0;
+					while(tmp_item2) {
+						tmp_nbr = (struct ospf_neighbor *)(tmp_item2->object);
+						if(tmp_nbr) {
+							if(tmp_nbr->state>=OSPF_NBRSTATE_EXSTART) {
+								send = 1;
+								tmp_item2=NULL;
+							}
+						}
+						if(tmp_item2) {
+							tmp_item2 = tmp_item2->next;
+						}
+					}
+				}
+				if(send) {
+					send_lsu(tmp_nbr,updated,OSPF_LSU_NOTRETX);
+				}
+				tmp_item = tmp_item->next;
+			}
+
+			send_lsack(nbr,updated);
+
+			remove_all_from_nlist(updated);
+		}
+	}
 }
 
 void send_lsack(struct ospf_neighbor *nbr, struct replay_nlist *lsalist) {

@@ -52,6 +52,7 @@ struct ospf_interface {
 	u_int8_t priority;
 	u_int16_t auth_type;
 	unsigned char auth_data[8];
+
 };
 
 #define OSPF_AUTHTYPE_NONE 0

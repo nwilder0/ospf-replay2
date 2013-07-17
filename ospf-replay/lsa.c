@@ -92,6 +92,7 @@ struct router_lsa* set_router_lsa() {
 	this->header.checksum = ospf_lsa_checksum(&this->header);
 
 	gettimeofday(&lsa->tv_recv,NULL);
+	gettimeofday(&lsa->tv_orig,NULL);
 	add_event((struct replay_object *)lsa,OSPF_EVENT_LSA_AGING);
 	add_lsa(ospf0->lsdb->this_rtr->header);
 
@@ -126,7 +127,7 @@ ospf_lsa_checksum_valid (struct lsa_header *lsa)
   return(fletcher_checksum(buffer, len, FLETCHER_CHECKSUM_VALIDATE) == 0);
 }
 
-int add_lsa(struct lsa_header *header) {
+struct ospf_lsa* add_lsa(struct lsa_header *header) {
 	// see if already exists
 	struct replay_nlist *tmp_item;
 	struct ospf_lsa *tmp_lsa;
@@ -150,6 +151,8 @@ int add_lsa(struct lsa_header *header) {
 					duplicate = TRUE;
 					gettimeofday(&tmp_lsa->tv_recv,NULL);
 					tmp_header->ls_age = header->ls_age;
+					tmp_lsa->tv_orig.tv_sec = tmp_lsa->tv_recv.tv_sec - ntohs(tmp_header->ls_age);
+					new_lsa = tmp_lsa;
 				}
 				else {
 					remove_lsa(tmp_lsa);
@@ -175,15 +178,17 @@ int add_lsa(struct lsa_header *header) {
 		if(!new_lsa) {
 			new_lsa = (struct ospf_lsa *) malloc(sizeof(struct ospf_lsa));
 			new_lsa->header = header;
+			gettimeofday(&new_lsa->tv_recv,NULL);
+			new_lsa->tv_orig.tv_sec = new_lsa->tv_recv - ntohs(new_lsa->header->ls_age);
 		}
 
-		gettimeofday(&new_lsa->tv_recv,NULL);
+
 		ospf0->lsdb->lsa_list[header->type] = add_to_nlist(ospf0->lsdb->lsa_list[header->type],(struct replay_object *)new_lsa,(unsigned long long)new_lsa->header->id.s_addr);
 		add_event((struct replay_object *)new_lsa,OSPF_EVENT_LSA_AGING);
 	} else {
 		add_event((struct replay_object *)tmp_lsa,OSPF_EVENT_LSA_AGING);
 	}
-	return duplicate;
+	return new_lsa;
 }
 
 void remove_lsa(struct ospf_lsa *lsa) {
@@ -217,6 +222,7 @@ int have_lsa(struct lsa_header *lsahdr) {
 	struct replay_nlist *tmp_item;
 	struct lsa_header *tmphdr=NULL;
 	struct ospf_lsa *tmplsa;
+	struct timeval now,orig;
 
 	if(lsahdr) {
 		tmp_item = ospf0->lsdb->lsa_list[lsahdr->type];
@@ -226,7 +232,11 @@ int have_lsa(struct lsa_header *lsahdr) {
 				tmphdr = tmplsa->header;
 				if(tmphdr) {
 					if((lsahdr->id.s_addr == tmphdr->id.s_addr)&&(lsahdr->adv_router.s_addr == tmphdr->adv_router.s_addr)) {
-						have = 1;
+						gettimeofday(&now,NULL);
+						orig.tv_sec = now.tv_sec - ntohs(lsahdr->ls_age);
+						if((tmplsa->tv_orig.tv_sec+REPLAY_LSA_AGE_MARGIN)>orig.tv_sec) {
+							have = 1;
+						}
 					}
 					if((tmp_item->key > (unsigned long long)(lsahdr->id.s_addr))||have) {
 						tmp_item = NULL;

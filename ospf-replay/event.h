@@ -39,6 +39,7 @@ struct ospf_event {
 #define OSPF_EVENT_DBDESC_RETX 4
 #define OSPF_EVENT_LSR_RETX 5
 #define OSPF_EVENT_LSU_ACK 6
+#define OSPF_EVENT_LSA_REFRESH 7
 
 void check_events();
 void do_event(struct replay_nlist*);

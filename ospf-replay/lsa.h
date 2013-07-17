@@ -214,7 +214,7 @@ struct router_lsa* set_router_lsa();
 u_int16_t ospf_lsa_checksum (struct lsa_header *);
 int ospf_lsa_checksum_valid (struct lsa_header *);
 
-int add_lsa(struct lsa_header *);
+struct ospf_lsa* add_lsa(struct lsa_header *);
 void remove_lsa(struct ospf_lsa *);
 struct replay_list* copy_lsalist();
 int have_lsa(struct lsa_header *);

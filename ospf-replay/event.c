@@ -44,6 +44,7 @@ void do_event(struct replay_nlist *item) {
 		break;
 
 	case OSPF_EVENT_LSA_AGING:
+		//send out max aged lsa
 		remove_lsa((struct ospf_lsa *)event->object);
 		break;
 
@@ -69,6 +70,10 @@ void do_event(struct replay_nlist *item) {
 	case OSPF_EVENT_LSU_ACK:
 		send_lsu((struct ospf_neighbor *)(event->object),NULL,OSPF_LSU_RETX);
 		break;
+
+	case OSPF_EVENT_LSA_REFRESH:
+		set_router_lsa();
+		break;
 	}
 
 	ospf0->eventlist = remove_from_nlist(ospf0->eventlist,item);
@@ -92,7 +97,7 @@ void add_event(struct replay_object *object,u_int8_t type) {
 			break;
 
 		case OSPF_EVENT_LSA_AGING:
-			new->tv.tv_sec = new->tv.tv_sec + OSPF_LSA_MAX_AGE;
+			new->tv.tv_sec = ((struct ospf_lsa *)object)->tv_orig.tv_sec + OSPF_LSA_MAX_AGE;
 			tmp = find_event(object,type);
 			if(tmp) {
 				remove_event(tmp);
@@ -115,6 +120,10 @@ void add_event(struct replay_object *object,u_int8_t type) {
 		case OSPF_EVENT_LSR_RETX:
 		case OSPF_EVENT_LSU_ACK:
 			new->tv.tv_sec = new->tv.tv_sec + ospf0->retransmit_interval;
+			break;
+
+		case OSPF_EVENT_LSA_REFRESH:
+			new->tv.tv_sec = new->tv.tv_sec + OSPF_LSA_RESEND_SELF;
 			break;
 
 		}
