@@ -47,7 +47,7 @@ struct replay_list* load_interfaces() {
 		replay_error("find_interface: error on 1st ioctl");
 	}
 
-	numif = ifc.ifc_len / sizeof(struct ifreq);
+	numif = ifc.ifc_len / sizeof(*ifr);
 	if ((ifr = malloc(ifc.ifc_len)) == NULL) {
 		replay_error("find_interface: error on malloc of ifreq");
 	}
@@ -65,17 +65,20 @@ struct replay_list* load_interfaces() {
 		struct sockaddr_in *sin = (struct sockaddr_in *)&r->ifr_addr;
 		struct sockaddr_in *smask = (struct sockaddr_in *)&r->ifr_netmask;
 
-		iface = (struct replay_interface *) malloc(sizeof(struct replay_interface));
-		new_item = (struct replay_list *) malloc(sizeof(struct replay_list));
+		iface = malloc(sizeof(*iface));
+		memset(iface,0,sizeof(*iface));
+		new_item = malloc(sizeof(*new_item));
+		memset(new_item,0,sizeof(*new_item));
 
 		iface->index = i;
 		iface->ip.s_addr = sin->sin_addr.s_addr;
 		iface->mask.s_addr = smask->sin_addr.s_addr;
 		iface->mtu = r->ifr_mtu;
 		strcpy(iface->name,r->ifr_name);
+		iface->ifr = r;
 
 		new_item->next = prev_item;
-		new_item->object = (struct replay_object *) iface;
+		new_item->object = (void *) iface;
 
 		/* Interface flags. */
 		if (ioctl(s, SIOCGIFFLAGS, ifr) == -1)
@@ -174,7 +177,8 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 	}
 
 	if(!duplicate) {
-		new_if = (struct ospf_interface *) malloc(sizeof(struct ospf_interface));
+		new_if = (struct ospf_interface *) malloc(sizeof(*new_if));
+		memset(new_if,0,sizeof(*new_if));
 
 		new_if->area_id = area;
 		new_if->iface = iface;
@@ -185,9 +189,9 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		inet_pton(AF_INET,"0.0.0.0",&new_if->dr);
 		new_if->priority = ospf0->priority;
 		new_if->auth_type = OSPF_AUTHTYPE_NONE;
-		bzero((char *) &new_if->auth_data, sizeof(new_if->auth_data));
+		memset(&new_if->auth_data, 0, sizeof(new_if->auth_data));
 
-		ospf0->iflist = add_to_list(ospf0->iflist,(struct replay_object *)new_if);
+		ospf0->iflist = add_to_list(ospf0->iflist,(void *)new_if);
 
 		ospf_socket = socket(AF_INET,SOCK_RAW,89);
 
@@ -196,7 +200,7 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		else
 			replay_log("add_interface: socket opened");
 
-		if (setsockopt(ospf_socket, SOL_SOCKET, SO_BINDTODEVICE, &iface->ifr, sizeof(iface->ifr)) < 0)
+		if (setsockopt(ospf_socket, SOL_SOCKET, SO_BINDTODEVICE, &iface->ifr, sizeof(*iface->ifr)) < 0)
 			replay_error("add_interface: ERROR on interface binding");
 		else
 			replay_log("add_interface: socket bound to interface");
@@ -214,8 +218,8 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		FD_SET(ospf_socket, &ospf0->ospf_sockets_err);
 
 		ospf0->ifcount++;
-		add_event((struct replay_object *)new_if,OSPF_EVENT_HELLO_BROADCAST);
-		add_event((struct replay_object *)new_if,OSPF_EVENT_NO_DR);
+		add_event((void *)new_if,OSPF_EVENT_HELLO_BROADCAST);
+		add_event((void *)new_if,OSPF_EVENT_NO_DR);
 	}
 	return new_if;
 
@@ -232,7 +236,7 @@ void remove_interface(struct ospf_interface *ospf_if) {
 		FD_CLR(ospf_if->ospf_socket,&ospf0->ospf_sockets_out);
 		FD_CLR(ospf_if->ospf_socket,&ospf0->ospf_sockets_err);
 
-		remove_object_events((struct replay_object *)ospf_if);
+		remove_object_events((void *)ospf_if);
 
 		tmp_item = ospf_if->pflist;
 		while(tmp_item) {

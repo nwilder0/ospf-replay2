@@ -49,14 +49,14 @@ void add_prefix(char* full_string, u_int32_t area) {
 	if(!duplicate) {
 		iface = find_interface(net.s_addr,mask.s_addr);
 
-		new_pfx = (struct ospf_prefix *) malloc(sizeof(struct ospf_prefix));
+		new_pfx = malloc(sizeof(*new_pfx));
+		memset(new_pfx,0,sizeof(*new_pfx));
 
 		new_pfx->mask.s_addr = mask.s_addr;
 		new_pfx->network.s_addr = net.s_addr;
 		new_pfx->iface = iface;
-		new_pfx->ospf_if = NULL;
 
-		ospf0->pflist = add_to_list(ospf0->pflist,(struct replay_object *)new_pfx);
+		ospf0->pflist = add_to_list(ospf0->pflist,(void *)new_pfx);
 		ospf0->pfxcount++;
 
 		if(iface && !ospf0->passif) {
@@ -82,7 +82,7 @@ void add_prefix(char* full_string, u_int32_t area) {
 					}
 				}
 				if(!duplicate) {
-					new_pfx->ospf_if->pflist = add_to_list(new_pfx->ospf_if->pflist,(struct replay_object *)new_pfx);
+					new_pfx->ospf_if->pflist = add_to_list(new_pfx->ospf_if->pflist,(void *)new_pfx);
 				}
 			}
 		}

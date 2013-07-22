@@ -38,12 +38,14 @@ int main(int argc, char *argv[])
 	int bool=0;
 
 	// allocate the two global structs
-	replay0 = (struct replay_config *) malloc(sizeof(struct replay_config));
-	ospf0 = (struct ospf *) malloc(sizeof(struct ospf));
+	replay0 = (struct replay_config *) malloc(sizeof(*replay0));
+	memset(replay0,0,sizeof(*replay0));
+	ospf0 = (struct ospf *) malloc(sizeof(*ospf0));
+	memset(ospf0,0,sizeof(*ospf0));
 
-	// set the replay0 FILE pointers to null
-	replay0->errors = replay0->events = replay0->lsdb = replay0->packets = NULL;
-
+	//printf("\nSetEUID: %i",seteuid(0));
+	printf("\nGetUID: %i",getuid());
+	printf("\nGetEUID: %i\n",geteuid());
 	// check for the -config parameter
 	if(argc>2) {
 		if(!strcmp(argv[1],"-config")) {

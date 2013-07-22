@@ -19,7 +19,7 @@
 struct router_lsa* set_router_lsa() {
 	struct router_lsa *this;
 	struct ospf_lsa *lsa;
-	int i;
+	int i,size;
 	struct replay_list *tmp_item;
 	struct ospf_neighbor *nbr;
 	struct ospf_prefix *pfx;
@@ -32,16 +32,32 @@ struct router_lsa* set_router_lsa() {
 		if(links != this->links) {
 			ls_seqnum = htonl(ntohl(this->header.ls_seqnum) + 1);
 			remove_lsa(lsa);
-			this = (struct router_lsa *) malloc(sizeof(struct router_lsa) + sizeof(struct router_lsa_link)*(links-1));
-			lsa = (struct ospf_lsa *) malloc(sizeof(struct ospf_lsa));
-			lsa->header = (struct lsa_header *)this;
+
+			//calculate the custom size for this since it may not match the type size due to varying number of links
+			size = sizeof(struct router_lsa) + sizeof(struct router_lsa_link)*(links-1);
+			this = malloc(size);
+			memset(this,0,sizeof(size));
+			//store the custom size in LSA header length field as required by OSPF header structure
+			// and for future reference by code if needed
+			this->header.length = htons(sizeof(size));
 			this->header.ls_seqnum = ls_seqnum;
+
 		}
 	}
 	else {
-		this = (struct router_lsa *) malloc(sizeof(struct router_lsa) + sizeof(struct router_lsa_link)*(links-1));
+		//calculate the custom size for this since it may not match the type size due to varying number of links
+		size = sizeof(struct router_lsa) + sizeof(struct router_lsa_link)*(links-1);
+		this = malloc(size);
+		memset(this,0,sizeof(size));
+		//store the custom size in LSA header length field as required by OSPF header structure
+		// and for future reference by code if needed
+		this->header.length = htons(sizeof(size));
 		this->header.ls_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
 	}
+
+	lsa = malloc(sizeof(*lsa));
+	memset(lsa,0,sizeof(*lsa));
+	lsa->header = (struct lsa_header *)this;
 
 	ospf0->lsdb->this_rtr = lsa;
 
@@ -88,12 +104,11 @@ struct router_lsa* set_router_lsa() {
 		tmp_item = tmp_item->next;
 	}
 
-	this->header.length = htons(sizeof(this));
 	this->header.checksum = ospf_lsa_checksum(&this->header);
 
 	gettimeofday(&lsa->tv_recv,NULL);
 	gettimeofday(&lsa->tv_orig,NULL);
-	add_event((struct replay_object *)lsa,OSPF_EVENT_LSA_AGING);
+	add_event((void *)lsa,OSPF_EVENT_LSA_AGING);
 	add_lsa(ospf0->lsdb->this_rtr->header);
 
 	return this;
@@ -176,17 +191,18 @@ struct ospf_lsa* add_lsa(struct lsa_header *header) {
 			}
 		}
 		if(!new_lsa) {
-			new_lsa = (struct ospf_lsa *) malloc(sizeof(struct ospf_lsa));
+			new_lsa = malloc(sizeof(*new_lsa));
+			memset(new_lsa,0,sizeof(*new_lsa));
 			new_lsa->header = header;
 			gettimeofday(&new_lsa->tv_recv,NULL);
 			new_lsa->tv_orig.tv_sec = new_lsa->tv_recv.tv_sec - ntohs(new_lsa->header->ls_age);
 		}
 
 
-		ospf0->lsdb->lsa_list[header->type] = add_to_nlist(ospf0->lsdb->lsa_list[header->type],(struct replay_object *)new_lsa,(unsigned long long)new_lsa->header->id.s_addr);
-		add_event((struct replay_object *)new_lsa,OSPF_EVENT_LSA_AGING);
+		ospf0->lsdb->lsa_list[header->type] = add_to_nlist(ospf0->lsdb->lsa_list[header->type],(void *)new_lsa,(unsigned long long)new_lsa->header->id.s_addr);
+		add_event((void *)new_lsa,OSPF_EVENT_LSA_AGING);
 	} else {
-		add_event((struct replay_object *)tmp_lsa,OSPF_EVENT_LSA_AGING);
+		add_event((void *)tmp_lsa,OSPF_EVENT_LSA_AGING);
 	}
 	return new_lsa;
 }
@@ -194,9 +210,9 @@ struct ospf_lsa* add_lsa(struct lsa_header *header) {
 void remove_lsa(struct ospf_lsa *lsa) {
 	struct replay_nlist *item;
 	struct ospf_event *event;
-	item = find_in_nlist(ospf0->lsdb->lsa_list[lsa->header->type],(struct replay_object *)lsa);
+	item = find_in_nlist(ospf0->lsdb->lsa_list[lsa->header->type],(void *)lsa);
 	remove_from_nlist(ospf0->lsdb->lsa_list[lsa->header->type],item);
-	event = find_event((struct replay_object *)lsa,OSPF_EVENT_LSA_AGING);
+	event = find_event((void *)lsa,OSPF_EVENT_LSA_AGING);
 	remove_event(event);
 	free(lsa->header);
 	free(lsa);

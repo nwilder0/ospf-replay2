@@ -59,12 +59,13 @@ const char *byte_to_binary(int x)
     return b;
 }
 
-struct replay_list* add_to_list(struct replay_list *list, struct replay_object *obj) {
+struct replay_list* add_to_list(struct replay_list *list, void *obj) {
 
 	struct replay_list *curr,*new;
 
-	new = (struct replay_list *)malloc(sizeof(struct replay_list));
-	new->next = NULL;
+	new = malloc(sizeof(*new));
+	memset(new,0,sizeof(*new));
+
 	new->object = obj;
 
 	curr = list;
@@ -85,7 +86,7 @@ struct replay_list* add_to_list(struct replay_list *list, struct replay_object *
 	}
 }
 
-struct replay_list* find_in_list(struct replay_list *list, struct replay_object *object) {
+struct replay_list* find_in_list(struct replay_list *list, void *object) {
 	struct replay_list *curr, *found;
 	found = NULL;
 	curr = list;
@@ -184,15 +185,16 @@ int mask2bits(uint32_t mask) {
 	return bits;
 }
 
-struct replay_nlist* add_to_nlist(struct replay_nlist *list,struct replay_object *obj,unsigned long long key) {
+struct replay_nlist* add_to_nlist(struct replay_nlist *list,void *obj,unsigned long long key) {
 
 	struct replay_nlist *curr, *prev, *new;
 	curr = list;
 	prev = NULL;
 	if(obj) {
-		new = (struct replay_nlist *) malloc(sizeof(struct replay_nlist));
+		new = malloc(sizeof(*new));
+		memset(new,0,sizeof(*new));
+
 		new->key = key;
-		new->next = NULL;
 		new->object = obj;
 		if(list) {
 			while(curr && (new->key > curr->key)) {
@@ -235,7 +237,7 @@ struct replay_nlist* remove_from_nlist(struct replay_nlist *list,struct replay_n
 	return list;
 }
 
-struct replay_nlist* find_in_nlist(struct replay_nlist *list,struct replay_object *object) {
+struct replay_nlist* find_in_nlist(struct replay_nlist *list,void *object) {
 
 		struct replay_nlist *curr, *found;
 		found = NULL;

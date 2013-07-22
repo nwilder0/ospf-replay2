@@ -27,7 +27,7 @@
 #include "replay.h"
 
 struct ospf_event {
-	struct replay_object *object;
+	void *object;
 	struct timeval tv;
 	u_int8_t type;
 };
@@ -43,11 +43,11 @@ struct ospf_event {
 
 void check_events();
 void do_event(struct replay_nlist*);
-void add_event(struct replay_object*,u_int8_t);
+void add_event(void*,u_int8_t);
 void remove_event(struct ospf_event*);
-void remove_object_events(struct replay_object*);
-struct ospf_event* find_event(struct replay_object*,u_int8_t);
-void find_and_remove_event(struct replay_object*,u_int8_t);
+void remove_object_events(void*);
+struct ospf_event* find_event(void*,u_int8_t);
+void find_and_remove_event(void*,u_int8_t);
 
 
 

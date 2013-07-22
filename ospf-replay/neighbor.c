@@ -22,10 +22,11 @@ void add_neighbor(u_int32_t ip,u_int32_t router_id,struct ospf_interface *ospf_i
 	if(nbr) {
 		//if neighbor exists, update dead time
 		gettimeofday(&nbr->last_heard,NULL);
-		add_event((struct replay_object*)nbr,OSPF_EVENT_NBR_DEAD);
+		add_event((void*)nbr,OSPF_EVENT_NBR_DEAD);
 	} else {
 		//else create new neighbor
-		nbr = (struct ospf_neighbor *)malloc(sizeof(struct ospf_neighbor));
+		nbr = malloc(sizeof(*nbr));
+		memset(nbr,0,sizeof(*nbr));
 		nbr->dead_interval = hello->dead_interval;
 		nbr->hello_interval = hello->hello_interval;
 		nbr->ip.s_addr = ip;
@@ -47,12 +48,12 @@ void add_neighbor(u_int32_t ip,u_int32_t router_id,struct ospf_interface *ospf_i
 		nbr->lsu_lsa_list = NULL;
 		nbr->lsu_lsa_count = 0;
 		gettimeofday(&nbr->last_heard,NULL);
-		add_event((struct replay_object*)nbr,OSPF_EVENT_NBR_DEAD);
+		add_event((void*)nbr,OSPF_EVENT_NBR_DEAD);
 
-		ospf0->nbrlist = add_to_list(ospf0->nbrlist,(struct replay_object *)nbr);
+		ospf0->nbrlist = add_to_list(ospf0->nbrlist,(void *)nbr);
 		ospf0->nbrcount++;
 
-		ospf_if->nbrlist = add_to_list(ospf_if->nbrlist,(struct replay_object *)nbr);
+		ospf_if->nbrlist = add_to_list(ospf_if->nbrlist,(void *)nbr);
 		set_router_lsa();
 	}
 }
@@ -60,15 +61,15 @@ void add_neighbor(u_int32_t ip,u_int32_t router_id,struct ospf_interface *ospf_i
 void remove_neighbor(struct ospf_neighbor *nbr) {
 	struct replay_list *item;
 
-	remove_object_events((struct replay_object *)nbr);
+	remove_object_events((void *)nbr);
 
-	item = find_in_list(ospf0->nbrlist,(struct replay_object *)nbr);
+	item = find_in_list(ospf0->nbrlist,(void *)nbr);
 	if(item) {
 		ospf0->nbrlist = remove_from_list(ospf0->nbrlist,item);
 		ospf0->nbrcount--;
 	}
 
-	item = find_in_list(nbr->ospf_if->nbrlist,(struct replay_object *)nbr);
+	item = find_in_list(nbr->ospf_if->nbrlist,(void *)nbr);
 	if(item) nbr->ospf_if->nbrlist = remove_from_list(ospf0->nbrlist,item);
 
 	if(nbr->lsa_need_list) {

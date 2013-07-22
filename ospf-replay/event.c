@@ -80,12 +80,13 @@ void do_event(struct replay_nlist *item) {
 	free(event);
 }
 
-void add_event(struct replay_object *object,u_int8_t type) {
+void add_event(void *object,u_int8_t type) {
 	struct ospf_event *new,*tmp;
 
 	if(object) {
 
-		new = (struct ospf_event *) malloc(sizeof(struct ospf_event));
+		new = malloc(sizeof(*new));
+		memset(new,0,sizeof(*new));
 		gettimeofday(&new->tv,NULL);
 		new->object = object;
 		new->type = type;
@@ -128,21 +129,21 @@ void add_event(struct replay_object *object,u_int8_t type) {
 
 		}
 
-		ospf0->eventlist = add_to_nlist(ospf0->eventlist,(struct replay_object *)new,(unsigned long long)new->tv.tv_sec);
+		ospf0->eventlist = add_to_nlist(ospf0->eventlist,(void *)new,(unsigned long long)new->tv.tv_sec);
 	}
 }
 
 void remove_event(struct ospf_event *remove) {
 	struct replay_nlist *item;
 	if(remove) {
-		item = find_in_nlist(ospf0->eventlist,(struct replay_object *)remove);
+		item = find_in_nlist(ospf0->eventlist,(void *)remove);
 		if(item) {
 			ospf0->eventlist = remove_from_nlist(ospf0->eventlist,item);
 		}
 	}
 }
 
-struct ospf_event* find_event(struct replay_object *object, u_int8_t type) {
+struct ospf_event* find_event(void *object, u_int8_t type) {
 	struct ospf_event *found,*tmp;
 	struct replay_nlist *curr;
 	found = NULL;
@@ -159,7 +160,7 @@ struct ospf_event* find_event(struct replay_object *object, u_int8_t type) {
 	return found;
 }
 
-void remove_object_events(struct replay_object *object) {
+void remove_object_events(void *object) {
 
 	struct ospf_event *tmp;
 	struct replay_nlist *curr;
@@ -177,7 +178,7 @@ void remove_object_events(struct replay_object *object) {
 
 }
 
-void find_and_remove_event(struct replay_object *obj, u_int8_t type) {
+void find_and_remove_event(void *obj, u_int8_t type) {
 	struct ospf_event *found;
 	found = find_event(obj,type);
 	if(found) {

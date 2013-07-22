@@ -15,19 +15,11 @@
 #include "replay.h"
 
 void load_defaults() {
-	int i;
 
 	replay_log("load_defaults: starting function\n");
 
 	replay0->iflist = load_interfaces();
 
-	replay_log("load_defaults: numeric members to 0\n");
-	// set replay0 numeric member variables to 0
-	replay0->log_events = replay0->log_packets = replay0->lsdb_history = 0;
-
-	replay_log("load_defaults: OSPF process Router ID to 0.0.0.0\n");
-	// initialize the OSPF process router_id to 0.0.0.0
-	bzero((char *) &ospf0->router_id, sizeof(ospf0->router_id));
 	replay_log("load_defaults: ospf0 numeric members to defaults");
 	// initialize the OSPF process numeric members to their defaults
 	ospf0->passif = OSPF_DEFAULT_PASSIF;
@@ -37,16 +29,11 @@ void load_defaults() {
 	ospf0->retransmit_interval = OSPF_DEFAULT_RETRANSMIT;
 	ospf0->transmit_delay = OSPF_DEFAULT_TRANSMITDELAY;
 	ospf0->ref_bandwdith = OSPF_DEFAULT_REFERENCE_BANDWIDTH;
-	ospf0->active_pfxcount = ospf0->ifcount = ospf0->nbrcount = ospf0->pfxcount = 0;
 	ospf0->options = OSPF_DEFAULT_OPTIONS;
 	ospf0->priority = OSPF_DEFAULT_PRIORITY;
-	ospf0->started = 0;
 
-	ospf0->eventlist = ospf0->iflist = ospf0->nbrlist = ospf0->pflist = NULL;
-	ospf0->lsdb->checksum = 0;
-	ospf0->lsdb->count = 0;
-	ospf0->lsdb->this_rtr = NULL;
-	for(i=0;i<OSPF_LSA_TYPES;i++) ospf0->lsdb->lsa_list[i] = NULL;
+	ospf0->lsdb = malloc(sizeof(*ospf0->lsdb));
+	memset(ospf0->lsdb,0,sizeof(*ospf0->lsdb));
 
 	replay_log("load_defaults: Clearing out the select() file/stream sets\n");
 	// clear out the select() file/stream descriptor sets
@@ -57,7 +44,6 @@ void load_defaults() {
 	replay_log("load_defaults: Adding stdin to select() input set\n");
 	// add stdin to the select() input set, this allows us to have a command line which accepts commands while we are looking for packets
 	FD_SET(0, &ospf0->ospf_sockets_in);
-	ospf0->max_socket = 0;
 
 	replay_log("load_defaults: finished with load_defaults\n");
 }

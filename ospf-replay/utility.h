@@ -26,18 +26,14 @@
 #include "replay.h"
 #include "checksum.h"
 
-struct replay_object {
-
-};
-
 struct replay_list {
 	struct replay_list *next;
-	struct replay_object *object;
+	void *object;
 };
 
 struct replay_nlist {
 	struct replay_nlist *next;
-	struct replay_object *object;
+	void *object;
 	unsigned long long key;
 };
 
@@ -45,17 +41,17 @@ void replay_error(char*);
 
 void replay_log(char*);
 
-struct replay_list* add_to_list(struct replay_list*,struct replay_object*);
+struct replay_list* add_to_list(struct replay_list*,void*);
 
 struct replay_list* remove_from_list(struct replay_list*,struct replay_list*);
 
-struct replay_list* find_in_list(struct replay_list*,struct replay_object*);
+struct replay_list* find_in_list(struct replay_list*,void*);
 
-struct replay_nlist* add_to_nlist(struct replay_nlist*,struct replay_object*,unsigned long long);
+struct replay_nlist* add_to_nlist(struct replay_nlist*,void*,unsigned long long);
 
 struct replay_nlist* remove_from_nlist(struct replay_nlist*,struct replay_nlist*);
 
-struct replay_nlist* find_in_nlist(struct replay_nlist*,struct replay_object*);
+struct replay_nlist* find_in_nlist(struct replay_nlist*,void*);
 
 struct replay_nlist* merge_nlist(struct replay_nlist*,struct replay_nlist*);
 
