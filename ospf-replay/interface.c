@@ -229,6 +229,9 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		FD_SET(new_if->ospf_socket, &ospf0->ospf_sockets_in);
 		FD_SET(new_if->ospf_socket, &ospf0->ospf_sockets_out);
 		FD_SET(new_if->ospf_socket, &ospf0->ospf_sockets_err);
+		if(new_if->ospf_socket > ospf0->max_socket) {
+			ospf0->max_socket = new_if->ospf_socket;
+		}
 
 		ospf0->ifcount++;
 		add_event((void *)new_if,OSPF_EVENT_HELLO_BROADCAST);
@@ -275,6 +278,10 @@ void remove_interface(struct ospf_interface *ospf_if) {
 				ospf0->iflist = remove_from_list(ospf0->iflist,tmp_item);
 			}
 		}
+		if(ospf0->max_socket == ospf_if->ospf_socket) {
+			recalc_max_socket();
+		}
+
 		if(ospf_if->ospf_socket)
 			close(ospf_if->ospf_socket);
 

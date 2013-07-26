@@ -81,9 +81,9 @@ void send_hello(struct ospf_interface *ospf_if,struct ospf_neighbor *neighbor) {
 	hello = (struct ospf_hello *)(packet + sizeof(struct ospfhdr));
 
 	hello->bdr.s_addr = ospf_if->bdr.s_addr;
-	hello->dead_interval = ospf0->dead_interval;
+	hello->dead_interval = htonl(ospf0->dead_interval);
 	hello->dr.s_addr = ospf_if->dr.s_addr;
-	hello->hello_interval = ospf0->hello_interval;
+	hello->hello_interval = htons(ospf0->hello_interval);
 	hello->network_mask.s_addr = ospf_if->iface->mask.s_addr;
 	hello->options = ospf0->options;
 	hello->priority = ospf0->priority;

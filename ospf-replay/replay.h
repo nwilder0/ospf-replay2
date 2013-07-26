@@ -90,7 +90,7 @@ struct ospf {
 
 };
 
-#define OSPF_DEFAULT_OPTIONS 0
+#define OSPF_DEFAULT_OPTIONS 0x02
 #define OSPF_DEFAULT_PASSIF 0
 #define OSPF_DEFAULT_HELLO 10
 #define OSPF_DEFAULT_DEAD 40
@@ -148,5 +148,7 @@ struct route_entry {
 
 extern struct replay_config *replay0;
 extern struct ospf *ospf0;
+
+void recalc_max_socket();
 
 #endif /* REPLAY_H_ */

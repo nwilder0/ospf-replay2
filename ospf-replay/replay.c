@@ -129,3 +129,21 @@ void start_listening() {
 	}
 }
 
+void recalc_max_socket() {
+	struct replay_list *tmp_item;
+	struct ospf_interface *tmp_if;
+
+	ospf0->max_socket = 0;
+
+	tmp_item = ospf0->iflist;
+	while(tmp_item) {
+		tmp_if = (struct ospf_interface *)tmp_item->object;
+		if(tmp_if) {
+			if(tmp_if->ospf_socket > ospf0->max_socket) {
+				ospf0->max_socket = tmp_if->ospf_socket;
+			}
+		}
+		tmp_item = tmp_item->next;
+	}
+
+}
