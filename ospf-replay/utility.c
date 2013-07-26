@@ -201,7 +201,11 @@ struct replay_nlist* add_to_nlist(struct replay_nlist *list,void *obj,unsigned l
 				prev = curr;
 				curr = curr->next;
 			}
-			prev->next = new;
+			if(prev) {
+				prev->next = new;
+			} else {
+				list = new;
+			}
 			new->next = curr;
 		}
 		else {

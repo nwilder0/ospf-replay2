@@ -90,7 +90,7 @@ void start_listening() {
 	printf("\n>");
 	fflush(stdout);
 	max_socket = ospf0->max_socket;
-	tv.tv_sec = 1;
+	tv.tv_sec = 2;
 	tv.tv_usec = 0;
 
 	bool = 1;

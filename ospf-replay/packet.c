@@ -109,7 +109,7 @@ void build_ospf_packet(u_int32_t src_addr,u_int32_t remote_addr,u_int8_t mesg_ty
 	header = (struct ospfhdr *)packet;
 	header->area_id = ospf_if->area_id;
 	header->mesg_type = mesg_type;
-	header->packet_length = htons(size - sizeof(struct iphdr));
+	header->packet_length = htons(size);
 	header->src_router = ospf0->router_id.s_addr;
 	header->version = OSPF_VERSION;
 	header->auth_type = ospf_if->auth_type;

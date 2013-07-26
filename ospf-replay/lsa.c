@@ -48,10 +48,10 @@ struct router_lsa* set_router_lsa() {
 		//calculate the custom size for this since it may not match the type size due to varying number of links
 		size = sizeof(struct router_lsa) + sizeof(struct router_lsa_link)*(links-1);
 		this = malloc(size);
-		memset(this,0,sizeof(size));
+		memset(this,0,size);
 		//store the custom size in LSA header length field as required by OSPF header structure
 		// and for future reference by code if needed
-		this->header.length = htons(sizeof(size));
+		this->header.length = htons(size);
 		this->header.ls_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
 	}
 

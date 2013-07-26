@@ -53,17 +53,14 @@ struct replay_list* load_interfaces() {
 	}
 	ifc.ifc_ifcu.ifcu_req = ifr;
 
-	if ((rc = ioctl(s, SIOCGIFCONF, &ifc)) < 0) {
-		replay_error("find_interface: error on 2nd ioctl");
-	}
-
 	prev_item = NULL;
 
 	for(i = 0; i < numif; i++) {
 
+		if ((rc = ioctl(s, SIOCGIFCONF, &ifc)) < 0) {
+				replay_error("find_interface: error on get IP ioctl");
+		}
 		struct ifreq *r = &ifr[i];
-		struct sockaddr_in *sin = (struct sockaddr_in *)&r->ifr_addr;
-		struct sockaddr_in *smask = (struct sockaddr_in *)&r->ifr_netmask;
 
 		iface = malloc(sizeof(*iface));
 		memset(iface,0,sizeof(*iface));
@@ -71,24 +68,19 @@ struct replay_list* load_interfaces() {
 		memset(new_item,0,sizeof(*new_item));
 
 		iface->index = i;
-		iface->ip.s_addr = sin->sin_addr.s_addr;
-		iface->mask.s_addr = smask->sin_addr.s_addr;
-		iface->mtu = r->ifr_mtu;
+		iface->ip.s_addr = ((struct sockaddr_in *)&r->ifr_addr)->sin_addr.s_addr;
+		//iface->mtu = r->ifr_mtu;
 		strcpy(iface->name,r->ifr_name);
-		iface->ifr = r;
+		iface->ifr = malloc(sizeof(*iface->ifr));
+		memcpy(iface->ifr,r,sizeof(*iface->ifr));
 
 		new_item->next = prev_item;
 		new_item->object = (void *) iface;
 
-		/* Interface flags. */
-		if (ioctl(s, SIOCGIFFLAGS, ifr) == -1)
-			iface->flags = 0;
-		else
-			iface->flags = ifr->ifr_flags;
-
-		ifr->ifr_data = (void *)&cmd;
+		// get interface speed / duplex settings
+		r->ifr_data = (void *)&cmd;
 		cmd.cmd = ETHTOOL_GSET; /* "Get settings" */
-		if (ioctl(s, SIOCETHTOOL, ifr) == -1) {
+		if (ioctl(s, SIOCETHTOOL, r) == -1) {
 			/* Unknown */
 			iface->speed = -1L;
 			iface->duplex = DUPLEX_UNKNOWN;
@@ -96,6 +88,28 @@ struct replay_list* load_interfaces() {
 			iface->speed = ethtool_cmd_speed(&cmd);
 		    iface->duplex = cmd.duplex;
 		}
+
+		// get interface flags
+		if (ioctl(s, SIOCGIFFLAGS, r) == -1) {
+			iface->flags = 0;
+		} else {
+			iface->flags = r->ifr_flags;
+		}
+
+		// get interface netmask
+		if (ioctl(s, SIOCGIFNETMASK, r) == -1) {
+			replay_error("load_interfaces: error getting interface netmask");
+		} else {
+			iface->mask.s_addr = ((struct sockaddr_in *)&r->ifr_netmask)->sin_addr.s_addr;
+		}
+
+		// get interface MTU
+		if (ioctl(s, SIOCGIFMTU, r) == -1) {
+			replay_error("load_interfaces: error getting interface MTU");
+		} else {
+			iface->mtu = r->ifr_mtu;
+		}
+
 		prev_item = new_item;
 	}
 
@@ -152,7 +166,6 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 	struct replay_list *tmp_item;
 	struct ip_mreq mreq;
 	struct sockaddr_in *sin = (struct sockaddr_in *)&iface->ifr->ifr_addr;
-	int ospf_socket;
 	char ifname[256];
 	int duplicate=FALSE;
 
@@ -193,14 +206,14 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 
 		ospf0->iflist = add_to_list(ospf0->iflist,(void *)new_if);
 
-		ospf_socket = socket(AF_INET,SOCK_RAW,89);
+		new_if->ospf_socket = socket(AF_INET,SOCK_RAW,89);
 
-		if(ospf_socket<0)
+		if(new_if->ospf_socket<0)
 			replay_error("add_interface: Error opening socket");
 		else
 			replay_log("add_interface: socket opened");
 
-		if (setsockopt(ospf_socket, SOL_SOCKET, SO_BINDTODEVICE, &iface->ifr, sizeof(*iface->ifr)) < 0)
+		if (setsockopt(new_if->ospf_socket, SOL_SOCKET, SO_BINDTODEVICE, iface->ifr, sizeof(*iface->ifr)) < 0)
 			replay_error("add_interface: ERROR on interface binding");
 		else
 			replay_log("add_interface: socket bound to interface");
@@ -208,14 +221,14 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		mreq.imr_interface.s_addr = sin->sin_addr.s_addr;
 		inet_pton(AF_INET,OSPF_MULTICAST_ALLROUTERS,&mreq.imr_multiaddr);
 
-		if(setsockopt(ospf_socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq))<0)
+		if(setsockopt(new_if->ospf_socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq))<0)
 			replay_error("add_interface: ERROR on multicast join");
 		else
 			replay_log("add_interface: multicast group added");
 
-		FD_SET(ospf_socket, &ospf0->ospf_sockets_in);
-		FD_SET(ospf_socket, &ospf0->ospf_sockets_out);
-		FD_SET(ospf_socket, &ospf0->ospf_sockets_err);
+		FD_SET(new_if->ospf_socket, &ospf0->ospf_sockets_in);
+		FD_SET(new_if->ospf_socket, &ospf0->ospf_sockets_out);
+		FD_SET(new_if->ospf_socket, &ospf0->ospf_sockets_err);
 
 		ospf0->ifcount++;
 		add_event((void *)new_if,OSPF_EVENT_HELLO_BROADCAST);
