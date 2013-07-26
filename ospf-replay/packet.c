@@ -31,26 +31,28 @@ void process_packet(int socket) {
 	size = recvfrom(socket, buffer, REPLAY_PACKET_BUFFER, 0, (struct sockaddr *)&recv_addr, &recv_addr_len);
 	if(size>0) {
 		oiface = find_oiface_by_socket(socket);
-		ipheader = (struct iphdr *)buffer;
-		iphdr_len = ipheader->ihl*4;
-		ospfheader = (struct ospfhdr *)(buffer+iphdr_len);
-		switch(ospfheader->mesg_type) {
+		if(recv_addr.sin_addr.s_addr != oiface->iface->ip.s_addr) {
+			ipheader = (struct iphdr *)buffer;
+			iphdr_len = ipheader->ihl*4;
+			ospfheader = (struct ospfhdr *)(buffer+iphdr_len);
+			switch(ospfheader->mesg_type) {
 
-		case OSPF_MESG_HELLO:
-			process_hello(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
-			break;
-		case OSPF_MESG_DBDESC:
-			process_dbdesc(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
-			break;
-		case OSPF_MESG_LSR:
-			process_lsr(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
-			break;
-		case OSPF_MESG_LSU:
-			process_lsu(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
-			break;
-		case OSPF_MESG_LSACK:
-			process_lsack(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
-			break;
+			case OSPF_MESG_HELLO:
+				process_hello(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+				break;
+			case OSPF_MESG_DBDESC:
+				process_dbdesc(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+				break;
+			case OSPF_MESG_LSR:
+				process_lsr(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+				break;
+			case OSPF_MESG_LSU:
+				process_lsu(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+				break;
+			case OSPF_MESG_LSACK:
+				process_lsack(buffer+iphdr_len,ipheader->saddr,ipheader->daddr,((unsigned int)ntohs(ospfheader->packet_length)),oiface);
+				break;
+			}
 		}
 	} else {
 		//error reading in packet

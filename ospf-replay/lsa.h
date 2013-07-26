@@ -110,6 +110,10 @@ struct ospf_lsa
   /* Related Route. */
   void *route;
 
+  struct in_addr ip;
+
+  unsigned long long hdr_ptr;
+
   /* Refreshement List or Queue */
   int refresh_list;
 

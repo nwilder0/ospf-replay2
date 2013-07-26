@@ -140,7 +140,9 @@ void remove_event(struct ospf_event *remove) {
 		if(item) {
 			ospf0->eventlist = remove_from_nlist(ospf0->eventlist,item);
 		}
+		free(remove);
 	}
+
 }
 
 struct ospf_event* find_event(void *object, u_int8_t type) {
@@ -168,12 +170,12 @@ void remove_object_events(void *object) {
 	curr = ospf0->eventlist;
 	while(curr) {
 		tmp = (struct ospf_event *)curr->object;
+		curr = curr->next;
 		if(tmp) {
 			if(tmp->object == object) {
 				remove_event(tmp);
 			}
 		}
-		curr = curr->next;
 	}
 
 }

@@ -39,7 +39,7 @@ struct router_lsa* set_router_lsa() {
 			memset(this,0,sizeof(size));
 			//store the custom size in LSA header length field as required by OSPF header structure
 			// and for future reference by code if needed
-			this->header.length = htons(sizeof(size));
+			this->header.length = htons(size);
 			this->header.ls_seqnum = ls_seqnum;
 
 		}
@@ -153,7 +153,7 @@ struct ospf_lsa* add_lsa(struct lsa_header *header) {
 	tmp_item = ospf0->lsdb->lsa_list[header->type];
 
 	if(tmp_item) {
-		tmp_lsa = (struct ospf_lsa*)tmp_item->object;
+		tmp_lsa = (struct ospf_lsa *)tmp_item->object;
 	}
 	while(tmp_item && tmp_lsa && !(duplicate)) {
 		tmp_header = (struct lsa_header *)tmp_lsa->header;
@@ -174,12 +174,14 @@ struct ospf_lsa* add_lsa(struct lsa_header *header) {
 					tmp_item = NULL;
 				}
 			}
-			if(header->id.s_addr < tmp_item->key) {
-				tmp_item = NULL;
+			if(tmp_item) {
+				if(header->id.s_addr < tmp_item->key) {
+					tmp_item = NULL;
+				}
 			}
 		}
 		if(tmp_item) {
-			tmp_lsa = (struct ospf_lsa*)tmp_item->object;
+			tmp_lsa = (struct ospf_lsa *)tmp_item->object;
 		}
 	}
 
@@ -204,6 +206,8 @@ struct ospf_lsa* add_lsa(struct lsa_header *header) {
 	} else {
 		add_event((void *)tmp_lsa,OSPF_EVENT_LSA_AGING);
 	}
+	new_lsa->ip.s_addr = header->id.s_addr;
+	new_lsa->hdr_ptr = &header;
 	return new_lsa;
 }
 
@@ -211,7 +215,7 @@ void remove_lsa(struct ospf_lsa *lsa) {
 	struct replay_nlist *item;
 	struct ospf_event *event;
 	item = find_in_nlist(ospf0->lsdb->lsa_list[lsa->header->type],(void *)lsa);
-	remove_from_nlist(ospf0->lsdb->lsa_list[lsa->header->type],item);
+	ospf0->lsdb->lsa_list[lsa->header->type] = remove_from_nlist(ospf0->lsdb->lsa_list[lsa->header->type],item);
 	event = find_event((void *)lsa,OSPF_EVENT_LSA_AGING);
 	remove_event(event);
 	free(lsa->header);
