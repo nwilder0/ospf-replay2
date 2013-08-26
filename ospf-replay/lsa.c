@@ -65,7 +65,7 @@ struct router_lsa* set_router_lsa() {
 	this->header.adv_router.s_addr = ospf0->router_id.s_addr;
 	this->header.id.s_addr = ospf0->router_id.s_addr;
 
-	this->header.options = 0;
+	this->header.options = ospf0->options;
 	this->header.type = OSPF_LSATYPE_ROUTER;
 
 	this->links = ospf0->active_pfxcount + ospf0->nbrcount;
@@ -202,6 +202,7 @@ struct ospf_lsa* add_lsa(struct lsa_header *header) {
 
 
 		ospf0->lsdb->lsa_list[header->type] = add_to_nlist(ospf0->lsdb->lsa_list[header->type],(void *)new_lsa,(unsigned long long)new_lsa->header->id.s_addr);
+		ospf0->lsdb->count++;
 		add_event((void *)new_lsa,OSPF_EVENT_LSA_AGING);
 	} else {
 		add_event((void *)tmp_lsa,OSPF_EVENT_LSA_AGING);
@@ -216,6 +217,7 @@ void remove_lsa(struct ospf_lsa *lsa) {
 	struct ospf_event *event;
 	item = find_in_nlist(ospf0->lsdb->lsa_list[lsa->header->type],(void *)lsa);
 	ospf0->lsdb->lsa_list[lsa->header->type] = remove_from_nlist(ospf0->lsdb->lsa_list[lsa->header->type],item);
+	ospf0->lsdb->count--;
 	event = find_event((void *)lsa,OSPF_EVENT_LSA_AGING);
 	remove_event(event);
 	free(lsa->header);
@@ -225,12 +227,18 @@ void remove_lsa(struct ospf_lsa *lsa) {
 struct replay_list* copy_lsalist() {
 	struct replay_list *start;
 	struct replay_nlist *tmp_item;
+	struct ospf_lsa *lsa;
 	int i;
 	start=NULL;
 	for(i=0;i<OSPF_LSA_TYPES;i++) {
 		tmp_item = ospf0->lsdb->lsa_list[i];
 		while(tmp_item) {
-			start = add_to_list(start,tmp_item->object);
+			lsa = (struct ospf_lsa *)tmp_item->object;
+			if(lsa) {
+				if(lsa->header) {
+					start = add_to_list(start,lsa->header);
+				}
+			}
 			tmp_item = tmp_item->next;
 		}
 	}

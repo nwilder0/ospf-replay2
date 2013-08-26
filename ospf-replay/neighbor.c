@@ -38,7 +38,7 @@ void add_neighbor(u_int32_t ip,u_int32_t router_id,struct ospf_interface *ospf_i
 		nbr->bdr.s_addr = hello->bdr.s_addr;
 		nbr->dr.s_addr = hello->dr.s_addr;
 		nbr->state = OSPF_NBRSTATE_INIT;
-		nbr->master = OSPF_DBDESC_FLAG_MASTER;
+		nbr->this_rtr_master = 0;
 		nbr->last_sent_seq = 0;
 		nbr->last_recv_seq = 0;
 		nbr->lsa_need_list = NULL;

@@ -155,7 +155,7 @@ void process_hello(void *packet, u_int32_t from, u_int32_t to, unsigned int size
 			neighbors = (struct in_addr *)(packet + (size - (sizeof(struct in_addr)*nbr_count)));
 			for(i=0;i<nbr_count;i++) {
 				if(neighbors[i].s_addr == ospf0->router_id.s_addr) {
-					nbr = find_neighbor_by_ip(to);
+					nbr = find_neighbor_by_ip(from);
 
 					//if(nbr) send_dbdesc(nbr);
 				}
@@ -171,44 +171,61 @@ void process_hello(void *packet, u_int32_t from, u_int32_t to, unsigned int size
 			* - other is BDR
 			*
 			*/
-			nbr->state = OSPF_NBRSTATE_2WAY;
-			//dr-bdr negotiation: handles most scenarios but not RFC compliant
-			if(oiface->dr.s_addr == 0) {
-				if(nbr->dr.s_addr==0) {
-					if(oiface->priority>nbr->priority) {
-						oiface->dr.s_addr = ospf0->router_id.s_addr;
-					} else if (nbr->priority>oiface->priority) {
-						oiface->dr.s_addr = nbr->router_id.s_addr;
-					} else {
-						if(ntohl(ospf0->router_id.s_addr)<ntohl(nbr->router_id.s_addr)) {
+			// set the nbr state to 2way since hello has been seen
+			if(nbr->state<=OSPF_NBRSTATE_2WAY) {
+				nbr->state = OSPF_NBRSTATE_2WAY;
+
+				//dr-bdr negotiation: handles most scenarios but not RFC compliant
+				//if the dr is empty
+				if(oiface->dr.s_addr == 0) {
+					// figure out who is dr
+					// if the nbr doesn't know...
+					if(nbr->dr.s_addr==0) {
+						//set it to whoever has larger priority or if equal then to greater router id
+						if(oiface->priority>nbr->priority) {
+							oiface->dr.s_addr = ospf0->router_id.s_addr;
+						} else if (nbr->priority>oiface->priority) {
 							oiface->dr.s_addr = nbr->router_id.s_addr;
 						} else {
-							oiface->dr.s_addr = ospf0->router_id.s_addr;
+							if(ntohl(ospf0->router_id.s_addr)<ntohl(nbr->router_id.s_addr)) {
+								oiface->dr.s_addr = nbr->router_id.s_addr;
+							} else {
+								oiface->dr.s_addr = ospf0->router_id.s_addr;
+							}
 						}
+					//if nbr has a dr of itself then use it
+					} else if (nbr->dr.s_addr == nbr->router_id.s_addr){
+						oiface->dr.s_addr = nbr->router_id.s_addr;
+					//if nbr has a dr of this rtr then go ahead and use ourself as dr
+					} else if (nbr->dr.s_addr == ospf0->router_id.s_addr){
+						oiface->dr.s_addr = ospf0->router_id.s_addr;
+					} else {
+						//wait for dr to talk
 					}
-				} else if (nbr->dr.s_addr == nbr->router_id.s_addr){
-					oiface->dr.s_addr = nbr->router_id.s_addr;
-				} else if (nbr->dr.s_addr == ospf0->router_id.s_addr){
-					oiface->dr.s_addr = ospf0->router_id.s_addr;
-				} else {
-					//wait for dr to talk
+					send_hello(oiface,NULL);
+				// if the bdr is empty
+				} else if (oiface->bdr.s_addr == 0){
+					//figure out who is bdr
+					//if the nbr thinks it is the bdr believe it
+					if (nbr->bdr.s_addr == nbr->router_id.s_addr) {
+						oiface->bdr.s_addr = nbr->bdr.s_addr;
+					}
 				}
-				send_hello(oiface,NULL);
-			} else if (oiface->bdr.s_addr == 0){
-				//figure out who is bdr
-				if (nbr->bdr.s_addr == nbr->router_id.s_addr) {
-					oiface->bdr.s_addr = nbr->bdr.s_addr;
+				if(nbr->dr.s_addr&&(nbr->dr.s_addr!=oiface->dr.s_addr)) {
+					oiface->dr.s_addr = nbr->dr.s_addr;
 				}
-			}
-			if((oiface->dr.s_addr == ospf0->router_id.s_addr)||(oiface->bdr.s_addr==ospf0->router_id.s_addr)||(nbr->dr.s_addr==nbr->router_id.s_addr)||(nbr->bdr.s_addr==nbr->router_id.s_addr)) {
-				//if so, go to exstart
-				nbr->state = OSPF_NBRSTATE_EXSTART;
-				nbr->lsa_send_list = copy_lsalist();
-				nbr->lsa_send_count = ospf0->lsdb->count;
-				send_dbdesc(nbr,0);
-			}
 
+				//if self or nbr is dr or bdr then go to exstart and send dbdesc
 
+				if((oiface->dr.s_addr == oiface->iface->ip.s_addr)||(oiface->bdr.s_addr==oiface->iface->ip.s_addr)||(nbr->dr.s_addr==nbr->ip.s_addr)||(nbr->bdr.s_addr==nbr->ip.s_addr)) {
+					//if so, go to exstart
+					nbr->state = OSPF_NBRSTATE_EXSTART;
+					nbr->lsa_send_list = copy_lsalist();
+					nbr->lsa_send_count = ospf0->lsdb->count;
+					send_dbdesc(nbr,0);
+				}
+
+			}
 
 		}
 
@@ -240,8 +257,8 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 		gettimeofday(&tv,NULL);
 		dbdesc->dd_seqnum = (u_int32_t)(tv.tv_sec);
 
-	} else if (nbr->state==OSPF_NBRSTATE_EXCHANGE) {
-		if(nbr->master) {
+	} else if (nbr->state>=OSPF_NBRSTATE_EXCHANGE) {
+		if(nbr->this_rtr_master) {
 			//if received ack, send next dbdesc
 			if(db_seq_num==nbr->last_sent_seq) {
 				if(nbr->lsa_send_count) {
@@ -250,7 +267,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 					packet = malloc(size);
 					memset(packet,0,size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
-					dbdesc->flags = OSPF_DBDESC_FLAG_MORE + nbr->master;
+					dbdesc->flags = OSPF_DBDESC_FLAG_MORE + nbr->this_rtr_master;
 					dbdesc->dd_seqnum = ++(nbr->last_sent_seq);
 					tmp_item = nbr->lsa_send_list;
 
@@ -268,7 +285,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 					packet = malloc(size);
 					memset(packet,0,size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
-					dbdesc->flags = nbr->master;
+					dbdesc->flags = nbr->this_rtr_master;
 					dbdesc->dd_seqnum = ++(nbr->last_sent_seq);
 				}
 			// if no ack, resend last dbdesc
@@ -279,7 +296,7 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 					packet = malloc(size);
 					memset(packet,0,size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
-					dbdesc->flags = OSPF_DBDESC_FLAG_MORE + nbr->master;
+					dbdesc->flags = OSPF_DBDESC_FLAG_MORE + nbr->this_rtr_master;
 					dbdesc->dd_seqnum = nbr->last_sent_seq;
 					tmp_item = nbr->lsa_send_list;
 
@@ -297,11 +314,11 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 					packet = malloc(size);
 					memset(packet,0,size);
 					dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
-					dbdesc->flags = nbr->master;
+					dbdesc->flags = nbr->this_rtr_master;
 					dbdesc->dd_seqnum = nbr->last_sent_seq;
 				}
 			}
-
+		//if this rtr is slave
 		} else {
 			if(db_seq_num) {
 				//send ack
@@ -309,8 +326,9 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 				packet = malloc(size);
 				memset(packet,0,size);
 				dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
-				dbdesc->flags = nbr->master;
+				dbdesc->flags = nbr->this_rtr_master;
 				dbdesc->dd_seqnum = db_seq_num;
+				nbr->last_sent_seq = dbdesc->dd_seqnum;
 
 			} else {
 				//send initial full dbdesc
@@ -318,8 +336,9 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 				packet = malloc(size);
 				memset(packet,0,size);
 				dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
-				dbdesc->flags = OSPF_DBDESC_FLAG_MORE + nbr->master;
+				dbdesc->flags = nbr->this_rtr_master;
 				dbdesc->dd_seqnum = nbr->last_recv_seq;
+				nbr->last_sent_seq = dbdesc->dd_seqnum;
 				tmp_item = nbr->lsa_send_list;
 
 				for(send_count=nbr->lsa_send_count;send_count;send_count--) {
@@ -336,12 +355,12 @@ void send_dbdesc(struct ospf_neighbor *nbr,u_int32_t db_seq_num) {
 	}
 	if(packet) {
 		dbdesc->options = ospf0->options;
-		dbdesc->mtu = nbr->ospf_if->iface->mtu;
+		dbdesc->mtu = htons(nbr->ospf_if->iface->mtu);
 		nbr->last_sent_seq = dbdesc->dd_seqnum;
 
 		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_DBDESC,packet,size,nbr->ospf_if);
 		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
-		if(nbr->master) {
+		if(nbr->this_rtr_master) {
 			add_event((void *)nbr,OSPF_EVENT_DBDESC_RETX);
 		}
 	}
@@ -368,7 +387,7 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 			dbdesc = (struct ospf_dbdesc *)(packet + sizeof(struct ospfhdr));
 			if(dbdesc) {
 				nbr->last_recv_seq = dbdesc->dd_seqnum;
-				if((nbr->last_recv_seq==nbr->last_sent_seq)&&(nbr->master)) {
+				if((nbr->last_recv_seq==nbr->last_sent_seq)&&(nbr->this_rtr_master)) {
 					//find retx event and remove it
 					find_and_remove_event((void *)nbr,OSPF_EVENT_DBDESC_RETX);
 				}
@@ -379,31 +398,33 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 						//if slave send dbdesc
 						nbr->state = OSPF_NBRSTATE_EXCHANGE;
 						if(ntohl(nbr->router_id.s_addr) < ntohl(ospf0->router_id.s_addr)) {
-							nbr->master = OSPF_DBDESC_FLAG_MASTER;
+							nbr->this_rtr_master = OSPF_DBDESC_FLAG_MASTER;
 						} else {
 							send_dbdesc(nbr,0);
 						}
 					}
 
 				} else if (nbr->state==OSPF_NBRSTATE_EXCHANGE) {
+					//get the lsa hdrs and check which are needed
+					lsa_hdrs = size - sizeof(struct ospfhdr) - sizeof(struct ospf_dbdesc);
+					while(lsa_hdrs) {
+						lsahdr = (struct lsa_header *)(packet + (size-lsa_hdrs));
+							if(!have_lsa(lsahdr)) {
+								//add to needed lsa list
+								need_lsa = malloc(sizeof(*need_lsa));
+								memset(need_lsa,0,sizeof(*need_lsa));
+								memcpy(need_lsa,lsahdr,sizeof(struct lsa_header));
+								nbr->lsa_need_list = add_to_list(nbr->lsa_need_list,(void *)need_lsa);
+								nbr->lsa_need_count++;
+							}
+						lsa_hdrs = lsa_hdrs - sizeof(struct lsa_header);
+					}
+
 					if(CHECK_BIT(dbdesc->flags,OSPF_DBDESC_FLAG_MORE)) {
-						//get the lsa hdrs and check which are needed
-						lsa_hdrs = size - sizeof(struct ospfhdr) - sizeof(struct ospf_dbdesc);
-						while(lsa_hdrs) {
-							lsahdr = (struct lsa_header *)(packet + (size-lsa_hdrs));
-								if(!have_lsa(lsahdr)) {
-									//add to needed lsa list
-									need_lsa = malloc(sizeof(*need_lsa));
-									memset(need_lsa,0,sizeof(*need_lsa));
-									memcpy(need_lsa,lsahdr,sizeof(struct lsa_header));
-									nbr->lsa_need_list = add_to_list(nbr->lsa_need_list,(void *)need_lsa);
-									nbr->lsa_need_count++;
-								}
-							lsa_hdrs = lsa_hdrs - sizeof(struct lsa_header);
-						}
+
 					} else {
 
-						if(nbr->master) {
+						if(nbr->this_rtr_master) {
 							if((nbr->last_sent_seq==nbr->last_recv_seq)&&nbr->lsa_send_count==0) {
 								nbr->state = OSPF_NBRSTATE_LOADING;
 							}
@@ -413,7 +434,11 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 
 						}
 					}
-					if(!(nbr->master&&nbr->state==OSPF_NBRSTATE_LOADING)) {
+
+					if(!(nbr->this_rtr_master)) {
+						if((dbdesc->flags!=OSPF_DBDESC_FLAG_MORE + OSPF_DBDESC_FLAG_INIT + OSPF_DBDESC_FLAG_MASTER)&&(nbr->last_sent_seq!=dbdesc->dd_seqnum))
+							send_dbdesc(nbr,nbr->last_recv_seq);
+					} else if(!(nbr->state==OSPF_NBRSTATE_LOADING)){
 						send_dbdesc(nbr,nbr->last_recv_seq);
 					}
 
@@ -427,12 +452,12 @@ void process_dbdesc(void *packet, u_int32_t from, u_int32_t to, unsigned int siz
 				}
 				if(nbr->state == OSPF_NBRSTATE_LOADING) {
 					if(nbr->lsa_send_list) {
-						nbr->lsa_send_list = delete_list(nbr->lsa_send_list);
+						nbr->lsa_send_list = remove_all_from_list(nbr->lsa_send_list);
 					}
 					nbr->lsa_send_count = 0;
 					nbr->last_recv_seq = 0;
 					nbr->last_sent_seq = 0;
-					nbr->master = 0;
+					nbr->this_rtr_master = 0;
 					if(nbr->lsa_need_list) {
 						send_lsr(nbr);
 					} else {
@@ -458,6 +483,7 @@ void send_lsr(struct ospf_neighbor *nbr) {
 		remote_addr.s_addr = nbr->ip.s_addr;
 
 		lsahdr = (struct lsa_header *)(nbr->lsa_need_list->object);
+
 		size = sizeof(struct ospfhdr) + sizeof(struct ospf_lsr);
 		packet = malloc(size);
 		memset(packet,0,size);
@@ -465,7 +491,7 @@ void send_lsr(struct ospf_neighbor *nbr) {
 		lsr = (struct ospf_lsr *)(packet+sizeof(struct ospfhdr));
 		lsr->advert_rtr = lsahdr->adv_router.s_addr;
 		lsr->lsa_id = lsahdr->id.s_addr;
-		lsr->lsa_type = (u_int32_t)(lsahdr->type);
+		lsr->lsa_type = htonl((u_int32_t)(lsahdr->type));
 
 		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSR,packet,size,nbr->ospf_if);
 		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
@@ -491,7 +517,7 @@ void process_lsr(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 	}
 	if(packet && (size>=(sizeof(struct ospfhdr)+sizeof(struct ospf_lsr))) && nbr) {
 		lsr = (struct ospf_lsr *)(packet+sizeof(struct ospfhdr));
-		lsa = find_lsa(lsr->advert_rtr,lsr->lsa_id,lsr->lsa_type);
+		lsa = find_lsa(lsr->advert_rtr,lsr->lsa_id,ntohl(lsr->lsa_type));
 		if(lsa&&(nbr->state>=OSPF_NBRSTATE_EXSTART)) {
 			tmp_item = add_to_nlist(tmp_item,(void *)lsa,(unsigned long long)(lsa->header->id.s_addr));
 			send_lsu(nbr,tmp_item,OSPF_LSU_NOTRETX);
@@ -562,7 +588,7 @@ void send_lsu(struct ospf_neighbor *nbr,struct replay_nlist *lsalist,u_int8_t re
 			tmp_nitem = tmp_nitem->next;
 		}
 
-		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSR,packet,size,nbr->ospf_if);
+		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSU,packet,size,nbr->ospf_if);
 		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
 
 		//add event to wait for LSACK or resend unicast LSU
