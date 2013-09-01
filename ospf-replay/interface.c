@@ -309,3 +309,26 @@ u_int16_t get_if_metric(struct ospf_interface *ospf_if) {
 		return 1;
 	}
 }
+
+void toggle_stub(struct ospf_interface *ospf_if) {
+	struct replay_list *item;
+	struct ospf_prefix *pfx;
+
+	item = ospf_if->pflist;
+	while(item) {
+		if(item->object) {
+			pfx = item->object;
+			if(ospf_if->nbrlist) {
+				ospf0->stub_pfxcount--;
+				ospf0->transit_pfxcount++;
+				pfx->type = OSPF_PFX_TYPE_TRANSIT;
+			} else {
+				ospf0->transit_pfxcount--;
+				ospf0->stub_pfxcount++;
+				pfx->type = OSPF_PFX_TYPE_STUB;
+			}
+		}
+		item = item->next;
+	}
+
+}

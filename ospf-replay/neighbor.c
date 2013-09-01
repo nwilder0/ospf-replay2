@@ -54,6 +54,10 @@ void add_neighbor(u_int32_t ip,u_int32_t router_id,struct ospf_interface *ospf_i
 		ospf0->nbrcount++;
 
 		ospf_if->nbrlist = add_to_list(ospf_if->nbrlist,(void *)nbr);
+		if(!ospf_if->nbrlist->next) {
+			toggle_stub(ospf_if);
+		}
+
 		set_router_lsa();
 	}
 }
@@ -81,6 +85,12 @@ void remove_neighbor(struct ospf_neighbor *nbr) {
 	}
 
 	// what about LSAs from this neighbor?
+	// change interface from transit to stub
+	if(nbr->ospf_if) {
+		if(!nbr->ospf_if->nbrlist) {
+			toggle_stub(nbr->ospf_if);
+		}
+	}
 
 	free(nbr);
 	set_router_lsa();

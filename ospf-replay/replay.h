@@ -47,6 +47,8 @@ struct ospf {
 	struct replay_list *pflist;
 	int pfxcount;
 	int active_pfxcount;
+	int stub_pfxcount;
+	int transit_pfxcount;
 
 	// OSPF neighbors
 	struct replay_list *nbrlist;

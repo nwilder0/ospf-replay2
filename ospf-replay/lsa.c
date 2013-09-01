@@ -23,7 +23,7 @@ struct router_lsa* set_router_lsa() {
 	struct replay_list *tmp_item;
 	struct ospf_neighbor *nbr;
 	struct ospf_prefix *pfx;
-	int links = ospf0->active_pfxcount + ospf0->nbrcount;
+	int links = ospf0->stub_pfxcount + ospf0->nbrcount;
 	u_int32_t ls_seqnum;
 
 	if(ospf0->lsdb->this_rtr) {
@@ -36,7 +36,7 @@ struct router_lsa* set_router_lsa() {
 			//calculate the custom size for this since it may not match the type size due to varying number of links
 			size = sizeof(struct router_lsa) + sizeof(struct router_lsa_link)*(links-1);
 			this = malloc(size);
-			memset(this,0,sizeof(size));
+			memset(this,0,size);
 			//store the custom size in LSA header length field as required by OSPF header structure
 			// and for future reference by code if needed
 			this->header.length = htons(size);
@@ -68,38 +68,40 @@ struct router_lsa* set_router_lsa() {
 	this->header.options = ospf0->options;
 	this->header.type = OSPF_LSATYPE_ROUTER;
 
-	this->links = ospf0->active_pfxcount + ospf0->nbrcount;
+	this->links = htons(ospf0->stub_pfxcount + ospf0->nbrcount);
 	this->flags = 0;
 	i = 0;
-	// add stub links
+	// add stub/transit links
 	tmp_item = ospf0->pflist;
 	while(tmp_item) {
 		if(tmp_item->object) {
 			pfx = (struct ospf_prefix *) tmp_item->object;
 			if(pfx->ospf_if) {
-				this->link[i].link_id.s_addr = pfx->network.s_addr;
-				this->link[i].link_data.s_addr = pfx->mask.s_addr;
-				this->link[i].metric = get_if_metric(pfx->ospf_if);
-				this->link[i].tos = 0;
-				this->link[i].type = LSA_LINK_TYPE_STUB;
+				if(pfx->type == OSPF_PFX_TYPE_STUB) {
+					this->link[i].link_id.s_addr = pfx->network.s_addr;
+					this->link[i].link_data.s_addr = pfx->mask.s_addr;
+					this->link[i].type = LSA_LINK_TYPE_STUB;
+					this->link[i].metric = get_if_metric(pfx->ospf_if);
+					this->link[i].tos = 0;
+
+				}
 				i++;
 			}
 		}
 		tmp_item = tmp_item->next;
 	}
-
 	tmp_item = ospf0->nbrlist;
 	while(tmp_item) {
 		if(tmp_item->object) {
 			nbr = (struct ospf_neighbor *) tmp_item->object;
-			if(nbr->state >= OSPF_NBRSTATE_2WAY) {
+			//if(nbr->state >= OSPF_NBRSTATE_2WAY) {
 				this->link[i].link_id.s_addr = nbr->router_id.s_addr;
 				this->link[i].link_data.s_addr = nbr->ip.s_addr;
 				this->link[i].metric = get_if_metric(nbr->ospf_if);
 				this->link[i].tos = 0;
-				this->link[i].type = LSA_LINK_TYPE_POINTOPOINT;
+				this->link[i].type = LSA_LINK_TYPE_TRANSIT;
 				i++;
-			}
+			//}
 		}
 		tmp_item = tmp_item->next;
 	}

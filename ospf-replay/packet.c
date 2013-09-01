@@ -636,8 +636,8 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 		//ignore if from nbr who's < exstart
 			lsa_ptr = (long long)packet + sizeof(struct ospfhdr) + sizeof(struct ospf_lsu);
 			while(lsa_ptr<((long long)packet+size)) {
-				lsahdr = (struct lsa_header *)(packet+lsa_ptr);
-				lsahdr->ls_age = lsahdr->ls_age + ospf0->transmit_delay;
+				lsahdr = (struct lsa_header *)lsa_ptr;
+				lsahdr->ls_age = htons(ntohs(lsahdr->ls_age) + (u_int16_t)(ospf0->transmit_delay));
 				lsa = find_lsa(lsahdr->adv_router.s_addr,lsahdr->id.s_addr,lsahdr->type);
 				orig.tv_sec = now.tv_sec - lsahdr->ls_age;
 				if(lsa) {
@@ -757,7 +757,7 @@ void send_lsack(struct ospf_neighbor *nbr, struct replay_nlist *lsalist) {
 			tmp_item = tmp_item->next;
 		}
 
-		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSR,packet,size,nbr->ospf_if);
+		build_ospf_packet(src_addr.s_addr,remote_addr.s_addr,OSPF_MESG_LSACK,packet,size,nbr->ospf_if);
 		send_packet(nbr->ospf_if,packet,remote_addr.s_addr,size);
 
 	}

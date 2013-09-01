@@ -29,7 +29,12 @@ struct ospf_prefix {
 	struct in_addr network, mask;
 	struct replay_interface *iface;
 	struct ospf_interface *ospf_if;
+	u_int8_t type;
 };
+
+#define OSPF_PFX_TYPE_INACTIVE 0
+#define OSPF_PFX_TYPE_STUB 1
+#define OSPF_PFX_TYPE_TRANSIT 2
 
 void add_prefix(char*,u_int32_t);
 void remove_prefix(struct ospf_prefix*);

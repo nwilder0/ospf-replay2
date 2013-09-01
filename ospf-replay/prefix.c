@@ -64,6 +64,13 @@ void add_prefix(char* full_string, u_int32_t area) {
 			if(new_pfx->ospf_if) {
 
 				ospf0->active_pfxcount++;
+				if(new_pfx->ospf_if->nbrlist) {
+					ospf0->transit_pfxcount++;
+					new_pfx->type = OSPF_PFX_TYPE_TRANSIT;
+				} else {
+					ospf0->stub_pfxcount++;
+					new_pfx->type = OSPF_PFX_TYPE_STUB;
+				}
 				duplicate = FALSE;
 				tmp_item = new_pfx->ospf_if->pflist;
 				if(tmp_item)
