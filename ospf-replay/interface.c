@@ -276,6 +276,10 @@ void remove_interface(struct ospf_interface *ospf_if) {
 			tmp_if = (struct ospf_interface *)tmp_item->object;
 			if(tmp_if==ospf_if) {
 				ospf0->iflist = remove_from_list(ospf0->iflist,tmp_item);
+				tmp_item = NULL;
+			}
+			if(tmp_item) {
+				tmp_item = tmp_item->next;
 			}
 		}
 		if(ospf0->max_socket == ospf_if->ospf_socket) {

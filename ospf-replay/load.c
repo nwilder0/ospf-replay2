@@ -285,6 +285,16 @@ void unload_replay() {
 
 	}
 
+	while(ospf0->nbrlist) {
+		tmp_nbr = (struct ospf_neighbor *)ospf0->nbrlist->object;
+
+		if(tmp_nbr) {
+			remove_neighbor(tmp_nbr);
+		} else {
+			ospf0->nbrlist = remove_from_list(ospf0->nbrlist,ospf0->nbrlist);
+		}
+	}
+
 	while(ospf0->iflist) {
 		tmp_if = (struct ospf_interface *)ospf0->iflist->object;
 
@@ -295,15 +305,6 @@ void unload_replay() {
 		}
 	}
 
-		while(ospf0->nbrlist) {
-		tmp_nbr = (struct ospf_neighbor *)ospf0->nbrlist->object;
-
-		if(tmp_nbr) {
-			remove_neighbor(tmp_nbr);
-		} else {
-			ospf0->nbrlist = remove_from_list(ospf0->nbrlist,ospf0->nbrlist);
-		}
-	}
 
 	while(ospf0->pflist) {
 		tmp_pfx = (struct ospf_prefix *)ospf0->pflist->object;
@@ -338,7 +339,9 @@ void unload_replay() {
 	fclose(replay0->errors);
 	fclose(replay0->events);
 	fclose(replay0->lsdb);
-	fclose(replay0->packets);
+	if(replay0->errors != replay0->packets) {
+		fclose(replay0->packets);
+	}
 	free(ospf0);
 	free(replay0);
 }

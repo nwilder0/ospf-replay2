@@ -83,9 +83,9 @@ struct router_lsa* set_router_lsa() {
 					this->link[i].type = LSA_LINK_TYPE_STUB;
 					this->link[i].metric = get_if_metric(pfx->ospf_if);
 					this->link[i].tos = 0;
-
+					i++;
 				}
-				i++;
+
 			}
 		}
 		tmp_item = tmp_item->next;

@@ -83,7 +83,7 @@ void start_listening() {
 
 	fd_set sockets_in, sockets_out, sockets_err;
 	struct timeval tv;
-	int bool=0;
+	int run_replay=0;
 	int max_socket, i;
 	char buffer[256];
 
@@ -93,8 +93,8 @@ void start_listening() {
 	tv.tv_sec = 2;
 	tv.tv_usec = 0;
 
-	bool = 1;
-	while(bool) {
+	run_replay = 1;
+	while(run_replay) {
 
 		sockets_in = ospf0->ospf_sockets_in;
 		sockets_out = ospf0->ospf_sockets_out;
@@ -107,13 +107,14 @@ void start_listening() {
 			if(FD_ISSET(i, &sockets_in)) {
 				if(!i) {
 					fgets(buffer,sizeof(buffer),stdin);
-					if(!strcmp("quit\n",buffer)) {
-						bool=0;
-					}
-					else {
-						printf(">");
-						fflush(stdout);
-					}
+					run_replay = process_command(buffer);
+					//if(!strcmp("quit\n",buffer)) {
+						//bool=0;
+					//}
+					//else {
+						//printf(">");
+						//fflush(stdout);
+					//}
 				}
 				else {
 
@@ -144,6 +145,94 @@ void recalc_max_socket() {
 			}
 		}
 		tmp_item = tmp_item->next;
+	}
+
+}
+
+int process_command(char *buffer) {
+
+	int run_replay=1;
+	char *word[10];
+
+	word[0] = strtok(buffer,WHITESPACE);
+	if(!strcmp("quit",buffer)) {
+		run_replay=0;
+	} else if(!strcmp("show",buffer)) {
+		word[1] = strtok(NULL,WHITESPACE);
+		word[2] = strtok(NULL,WHITESPACE);
+		word[3] = strtok(NULL,WHITESPACE);
+		if(word[1]) {
+			if(!strcmp("ip",word[1])) {
+				if(word[2]) {
+					if(!strcmp("ospf",word[2])) {
+						if(word[3]) {
+							if(!strcmp("neighbors",word[3])) {
+								show_nbrs();
+								printf(">");
+								fflush(stdout);
+							}
+						}
+					}
+				}
+			}
+		}
+	} else if(!strcmp("debug",buffer)) {
+		// debug commands
+	} else {
+		printf(">");
+		fflush(stdout);
+	}
+
+	return run_replay;
+}
+
+void show_nbrs() {
+	struct ospf_neighbor *nbr;
+	struct replay_list *item;
+	char rtr_id_str[INET_ADDRSTRLEN],iface_ip_str[INET_ADDRSTRLEN],nbr_ip_str[INET_ADDRSTRLEN];
+	char nbr_state_str[32];
+
+	nbr_state_str[0] = '\0';
+	//print headers
+	printf("Neighbor ID          State               Dead Time     Address              Interface\n");
+	item = ospf0->nbrlist;
+	while(item) {
+		nbr = item->object;
+		if(nbr) {
+
+			switch(nbr->state) {
+				case OSPF_NBRSTATE_DOWN:
+					strcpy(nbr_state_str,"Down");
+					break;
+				case OSPF_NBRSTATE_ATTEMPT:
+					strcpy(nbr_state_str,"Attempt");
+					break;
+				case OSPF_NBRSTATE_INIT:
+					strcpy(nbr_state_str,"Initial");
+					break;
+				case OSPF_NBRSTATE_2WAY:
+					strcpy(nbr_state_str,"2-Way");
+					break;
+				case OSPF_NBRSTATE_EXSTART:
+					strcpy(nbr_state_str,"ExStart");
+					break;
+				case OSPF_NBRSTATE_EXCHANGE:
+					strcpy(nbr_state_str,"Exchange");
+					break;
+				case OSPF_NBRSTATE_LOADING:
+					strcpy(nbr_state_str,"Loading");
+					break;
+				case OSPF_NBRSTATE_FULL:
+					strcpy(nbr_state_str,"Full");
+					break;
+			}
+			inet_ntop(AF_INET, &nbr->router_id, rtr_id_str, INET_ADDRSTRLEN);
+			inet_ntop(AF_INET, &nbr->ip, nbr_ip_str, INET_ADDRSTRLEN);
+			inet_ntop(AF_INET, &nbr->ospf_if->iface->ip, iface_ip_str, INET_ADDRSTRLEN);
+
+			printf("%-21s%-21s%-13fs%-21s%-4s:%-21s\n",rtr_id_str,nbr_state_str,(double)(nbr->last_heard.tv_sec),nbr_ip_str,(nbr->ospf_if->iface->name),iface_ip_str);
+		}
+		item = item->next;
 	}
 
 }

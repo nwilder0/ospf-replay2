@@ -509,18 +509,28 @@ void process_lsr(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 	struct ospf_neighbor *nbr;
 	struct replay_nlist *tmp_item=NULL;
 
+	//find the neighbor who sent the packet
 	nbr=find_neighbor_by_ip(from);
+	// if nbr found
 	if(nbr) {
+		// if the found nbr is not on the interface that we received the packet from then ignore this packet
 		if(nbr->ospf_if != oiface) {
 			nbr = NULL;
 		}
 	}
+	// make sure packet exists, valid nbr found, and packet size is correct for LSR
 	if(packet && (size>=(sizeof(struct ospfhdr)+sizeof(struct ospf_lsr))) && nbr) {
+		// get the LSR portion of the packet
 		lsr = (struct ospf_lsr *)(packet+sizeof(struct ospfhdr));
+		// find the lsa the nbr is asking for
 		lsa = find_lsa(lsr->advert_rtr,lsr->lsa_id,ntohl(lsr->lsa_type));
+		// if lsa found and the nbr is supposed to be sending LSRs
 		if(lsa&&(nbr->state>=OSPF_NBRSTATE_EXSTART)) {
+			// create a one item nlist with lsa as the object and the lsa id as key
 			tmp_item = add_to_nlist(tmp_item,(void *)lsa,(unsigned long long)(lsa->header->id.s_addr));
+			// send the lsu
 			send_lsu(nbr,tmp_item,OSPF_LSU_NOTRETX);
+			// remove the nlist items (but not the lsa objects)
 			remove_all_from_nlist(tmp_item);
 		}
 	}
@@ -620,10 +630,11 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 	struct replay_nlist *updated=NULL;
 	struct replay_list *tmp_item,*tmp_item2;
 	long long lsa_ptr=0;
-	int ignore=0,send=0;
+	int ignore=0,send=0,changed_need_list=0;
 	struct timeval now,orig;
 	struct ospf_interface *tmp_if;
 
+	// find the nbr who sent the packet and make sure their iface matches the packet iface
 	nbr=find_neighbor_by_ip(from);
 	if(nbr) {
 		if(nbr->ospf_if != oiface) {
@@ -631,38 +642,53 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 		}
 	}
 	gettimeofday(&now,NULL);
+	// if nbr, interface and packet are valid
 	if(nbr&&oiface&&packet) {
+		//ignore packet if from nbr who's < exstart
 		if(nbr->state>=OSPF_NBRSTATE_EXSTART) {
-		//ignore if from nbr who's < exstart
+			//start with the first lsa hdr in the LSU
 			lsa_ptr = (long long)packet + sizeof(struct ospfhdr) + sizeof(struct ospf_lsu);
+			// while we haven't reached the end of the packet
 			while(lsa_ptr<((long long)packet+size)) {
+				// get the current lsa hdr
 				lsahdr = (struct lsa_header *)lsa_ptr;
+				// increment the lsahdr's age by the transmit delay
 				lsahdr->ls_age = htons(ntohs(lsahdr->ls_age) + (u_int16_t)(ospf0->transmit_delay));
+				// find an existing lsa for this hdr if one exists
 				lsa = find_lsa(lsahdr->adv_router.s_addr,lsahdr->id.s_addr,lsahdr->type);
+				// get the time the lsa was originated
 				orig.tv_sec = now.tv_sec - lsahdr->ls_age;
+				// if lsa was found and lsa in lsdb is within margin of lsa recieved in lsu then ignore it
 				if(lsa) {
 					if((lsa->tv_orig.tv_sec+REPLAY_LSA_AGE_MARGIN)>orig.tv_sec) {
 						ignore = 1;
+					// else remove the old lsa
 					} else {
 						//ensure proper removal out of any lists?
 						remove_lsa(lsa);
 					}
 				}
+				// if we're not ignoring the current lsu packet's lsa hdr then add it to the lsdb
 				if(!ignore) {
+					// malloc the new lsa
 					new_hdr = malloc(ntohs(lsahdr->length));
 					memset(new_hdr,0,ntohs(lsahdr->length));
+					// copy the packet's current lsa into the new system lsa
 					memcpy(new_hdr,lsahdr,ntohs(lsahdr->length));
+					// add this lsa to the lsdb
 					lsa = add_lsa(new_hdr);
+					// if successfully added then add the new lsa to the updated list
 					if(lsa) {
 						updated = add_to_nlist(updated,(void *)lsa,new_hdr->id.s_addr);
 					}
+					// find the new hdr in the need list and remove it if found
 					tmp_item = nbr->lsa_need_list;
 					while(tmp_item) {
 						need_hdr = (struct lsa_header *)(tmp_item->object);
 						if(need_hdr) {
 							if((need_hdr->adv_router.s_addr==new_hdr->adv_router.s_addr)&&(need_hdr->id.s_addr==new_hdr->id.s_addr)&&(need_hdr->type==new_hdr->type)) {
+								changed_need_list = 1;
 								nbr->lsa_need_list = remove_from_list(nbr->lsa_need_list,tmp_item);
-								find_and_remove_event((void *)nbr,OSPF_EVENT_LSR_RETX);
 								tmp_item = NULL;
 							}
 						}
@@ -671,13 +697,23 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 						}
 					}
 				}
-
+				// move to next lsa
 				lsa_ptr = lsa_ptr + ntohs(lsahdr->length);
 			}
-			if(nbr->lsa_need_list) {
-				send_lsr(nbr);
-			} else {
-				nbr->state = OSPF_NBRSTATE_FULL;
+			// ack the recieved lsu
+			send_lsack(nbr,updated);
+
+			if(changed_need_list) {
+
+				// remove the LSR retransmit
+				find_and_remove_event((void *)nbr,OSPF_EVENT_LSR_RETX);
+
+				// if anything is still needed then send an lsr
+				if(nbr->lsa_need_list) {
+					send_lsr(nbr);
+				} else {
+					nbr->state = OSPF_NBRSTATE_FULL;
+				}
 			}
 
 			tmp_item = ospf0->iflist;
@@ -688,7 +724,7 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 					send = 0;
 					while(tmp_item2) {
 						tmp_nbr = (struct ospf_neighbor *)(tmp_item2->object);
-						if(tmp_nbr) {
+						if(tmp_nbr && (tmp_nbr != nbr)) {
 							if(tmp_nbr->state>=OSPF_NBRSTATE_EXSTART) {
 								send = 1;
 								tmp_item2=NULL;
@@ -704,8 +740,6 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 				}
 				tmp_item = tmp_item->next;
 			}
-
-			send_lsack(nbr,updated);
 
 			remove_all_from_nlist(updated);
 		}
@@ -779,21 +813,29 @@ void process_lsack(void *packet,u_int32_t from,u_int32_t to,unsigned int size,st
 	}
 
 	if(packet&&size&&oiface&&nbr) {
-
+		//get ptr to first lsa hdr
 		lsa_ptr = (long long)packet + sizeof(struct ospfhdr);
+		// while there is room for at least one more lsa hdr in the packet size...
 		while((lsa_ptr+sizeof(struct lsa_header))<=((long long)packet+size)) {
-			hdr = (struct lsa_header *)(packet + lsa_ptr);
+			// get the current lsa hdr
+			hdr = (struct lsa_header *)(lsa_ptr);
+			// iterate thru the nbr's lsu lsa list to find and remove this hdr (since its been ack'd)
 			tmp_item = nbr->lsu_lsa_list;
 			while(tmp_item) {
 				next = tmp_item->next;
+				//get the current lsa in the lsu lsa list
 				tmp_lsa = (struct ospf_lsa *)(tmp_item->object);
 				if(tmp_lsa) {
+					// get the current lsa hdr for this lsa in the lsu list
 					tmp_hdr = tmp_lsa->header;
 					if(tmp_hdr) {
+						// if ack'd hdr checksum and current lsu list hdr checksum match...
 						if(hdr->checksum==tmp_hdr->checksum) {
+							// remove this current lsa from the lsu list, its been ack'd
 							nbr->lsu_lsa_list = remove_from_nlist(nbr->lsu_lsa_list,tmp_item);
 							tmp_item = NULL;
 						} else {
+							// else if we've gone past the ack'd hdr's potential position in the list go ahead and stop looking
 							if(tmp_item->key>(unsigned long long)(hdr->id.s_addr)) {
 								tmp_item = NULL;
 							}
@@ -804,10 +846,11 @@ void process_lsack(void *packet,u_int32_t from,u_int32_t to,unsigned int size,st
 					tmp_item = next;
 				}
 			}
+			// move to the next header in the LSACK packet (if any)
 			lsa_ptr = lsa_ptr + sizeof(struct lsa_header);
 		}
 
-		// remove from lsu_lsa_list, if lsu list is empty remove event
+		// if lsu list is empty remove event
 		if(nbr->lsu_lsa_list) {
 			find_and_remove_event((void *)nbr,OSPF_EVENT_LSU_ACK);
 		}

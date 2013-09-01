@@ -84,6 +84,10 @@ void remove_neighbor(struct ospf_neighbor *nbr) {
 		nbr->lsa_send_list = delete_list(nbr->lsa_send_list);
 	}
 
+	if(nbr->lsu_lsa_list) {
+		nbr->lsu_lsa_list = remove_all_from_nlist(nbr->lsu_lsa_list);
+	}
+
 	// what about LSAs from this neighbor?
 	// change interface from transit to stub
 	if(nbr->ospf_if) {
