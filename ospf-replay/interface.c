@@ -336,3 +336,82 @@ void toggle_stub(struct ospf_interface *ospf_if) {
 	}
 
 }
+
+struct replay_interface* find_interface_by_name(char* ifname) {
+
+	struct replay_interface *search_if, *found;
+	struct replay_list *search_item;
+
+	search_item = replay0->iflist;
+	found = NULL;
+
+	while(search_item) {
+		if(search_item->object) {
+			search_if = (struct replay_interface *)search_item->object;
+			if(!strcmp(search_if->name,ifname)) {
+				found = search_if;
+			}
+		}
+		search_item = search_item->next;
+	}
+	return found;
+}
+
+struct ospf_interface* find_oiface(struct replay_interface *rface) {
+
+	struct ospf_interface *search_if, *found;
+	struct replay_list *search_item;
+
+	search_item = ospf0->iflist;
+	found = NULL;
+
+	while(search_item) {
+		if(search_item->object) {
+			search_if = (struct ospf_interface *)search_item->object;
+			if(search_if->iface == rface) {
+				found = search_if;
+			}
+		}
+		search_item = search_item->next;
+	}
+	return found;
+}
+
+struct replay_interface* new_viface(char *ifname) {
+
+	struct replay_interface *new_if;
+
+	new_if = find_interface_by_name(ifname);
+
+	if(!new_if) {
+		new_if = (struct replay_interface *) malloc(sizeof(*new_if));
+		memset(new_if,0,sizeof(*new_if));
+		new_if->duplex = REPLAY_VFACE_DUPLEX;
+		new_if->flags = REPLAY_VFACE_FLAGS;
+		new_if->index = REPLAY_VFACE_INDEX;
+		new_if->mtu = REPLAY_VFACE_MTU;
+		new_if->speed = REPLAY_VFACE_SPEED;
+		strcpy(new_if->name,ifname);
+		new_if->virtual = TRUE;
+	}
+
+
+	return new_if;
+}
+
+struct ospf_interface* iface_up(struct replay_interface *iface) {
+
+	struct ospf_prefix *pfx;
+	struct ospf_interface *oface;
+
+	oface = find_oiface(iface);
+
+	if(iface->ip.s_addr&&(!oface)) {
+		pfx = find_prefix(iface->ip.s_addr);
+		if(pfx) {
+			oface = add_interface(iface,pfx->area);
+		}
+	}
+
+	return oface;
+}

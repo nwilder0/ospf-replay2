@@ -152,6 +152,5 @@ extern struct replay_config *replay0;
 extern struct ospf *ospf0;
 
 void recalc_max_socket();
-int process_command(char*);
 
 #endif /* REPLAY_H_ */

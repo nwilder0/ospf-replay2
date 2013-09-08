@@ -58,8 +58,10 @@ void load_config(const char* filename) {
 	char mesg[256] = "";
 	// word# holds an individual word from current line of the file, ifname = interface name when in the interface block of the config file
 	char *word, *word2, *word3, *ifname, *logfilename;
+	char net_string[16],mask_string[16];
 	// indicates which block of the config file is currently being read
 	int config_block=0;
+	struct replay_interface *curr_rface;
 	// before we do anything create the global structs and make sure all their necessary members are NULL'd or zero'd out
 	load_defaults();
 
@@ -86,6 +88,10 @@ void load_config(const char* filename) {
 					ifname = strtok(NULL,WHITESPACE);
 					if(ifname) {
 						config_block = REPLAY_CONFIG_IF;
+						curr_rface = find_interface_by_name(ifname);
+						if(!curr_rface) {
+							curr_rface = new_viface(ifname);
+						}
 					}
 				}
 				else if(config_block) {
@@ -240,6 +246,38 @@ void load_config(const char* filename) {
 
 					case REPLAY_CONFIG_IF:
 						// load interface config(s)
+						if(!strcmp("record",word)) {
+							word = strtok(NULL,WHITESPACE);
+							if(word) {
+								curr_rface->record = fopen(word,"a");
+								if(!curr_rface->record) {
+									replay_error("file error: unable to open/create record log specified in config file\n");
+								}
+							}
+						}
+						else if(!strcmp("replay",word)) {
+							word = strtok(NULL,WHITESPACE);
+							if(word) {
+								curr_rface->replay = fopen(word,"r");
+								if(!curr_rface->replay) {
+									replay_error("file error: unable to open replay log specified in config file\n");
+								}
+							}
+						}
+						else if(!strcmp("ip",word)) {
+							word = strtok(NULL,WHITESPACE);
+							if(word) {
+
+								strcpy(net_string,strtok(word,"/"));
+								strcpy(mask_string,strtok(NULL,"/"));
+
+								curr_rface->mask.s_addr = bits2mask(atoi(mask_string));
+
+								inet_pton(AF_INET,net_string,&curr_rface->ip);
+								iface_up(curr_rface);
+							}
+						}
+
 						break;
 
 					}

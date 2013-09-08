@@ -30,6 +30,7 @@ struct ospf_prefix {
 	struct replay_interface *iface;
 	struct ospf_interface *ospf_if;
 	u_int8_t type;
+	u_int32_t area;
 };
 
 #define OSPF_PFX_TYPE_INACTIVE 0
@@ -38,5 +39,6 @@ struct ospf_prefix {
 
 void add_prefix(char*,u_int32_t);
 void remove_prefix(struct ospf_prefix*);
+struct ospf_prefix* find_prefix(u_int32_t);
 
 #endif /* PREFIX_H_ */

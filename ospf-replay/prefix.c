@@ -55,6 +55,7 @@ void add_prefix(char* full_string, u_int32_t area) {
 		new_pfx->mask.s_addr = mask.s_addr;
 		new_pfx->network.s_addr = net.s_addr;
 		new_pfx->iface = iface;
+		new_pfx->area = area;
 
 		ospf0->pflist = add_to_list(ospf0->pflist,(void *)new_pfx);
 		ospf0->pfxcount++;
@@ -139,6 +140,27 @@ void remove_prefix(struct ospf_prefix *ospf_pfx) {
 	if(ospf0->started) {
 		set_router_lsa();
 	}
+
+}
+
+struct ospf_prefix* find_prefix(u_int32_t ip) {
+
+	struct ospf_prefix *search_pfx, *found;
+	struct replay_list *search_item;
+
+	search_item = ospf0->pflist;
+	found = NULL;
+
+	while(search_item) {
+		if(search_item->object) {
+			search_pfx = (struct ospf_prefix *)search_item->object;
+			if(ip_in_net(ip,search_pfx->network.s_addr,search_pfx->mask.s_addr)) {
+				found = search_pfx;
+			}
+		}
+		search_item = search_item->next;
+	}
+	return found;
 
 }
 

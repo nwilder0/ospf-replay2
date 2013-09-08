@@ -160,6 +160,18 @@ uint32_t get_net(uint32_t addr, uint32_t mask) {
 	return net_addr;
 }
 
+u_int8_t ip_in_net(u_int32_t ip, u_int32_t net, u_int32_t mask) {
+	u_int8_t bool=0;
+	u_int32_t cmp_net=0;
+
+	cmp_net = get_net(ip,mask);
+	if(cmp_net == net) {
+		bool = TRUE;
+	}
+
+	return bool;
+}
+
 uint32_t bits2mask(int bits) {
 
 	uint32_t mask = 0;

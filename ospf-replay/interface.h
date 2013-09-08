@@ -38,6 +38,8 @@ struct replay_interface {
 	int index;
 	int duplex;
 	int flags;
+	u_int8_t virtual;
+	FILE *replay, *record;
 };
 
 struct ospf_interface {
@@ -57,15 +59,25 @@ struct ospf_interface {
 
 #define OSPF_AUTHTYPE_NONE 0
 
+#define REPLAY_VFACE_DUPLEX DUPLEX_FULL
+#define REPLAY_VFACE_SPEED SPEED_1000
+#define REPLAY_VFACE_MTU 1500
+#define REPLAY_VFACE_INDEX 0
+#define REPLAY_VFACE_FLAGS 0
+
 struct replay_list* load_interfaces();
 struct ospf_interface* add_interface(struct replay_interface*,u_int32_t);
 void remove_interface(struct ospf_interface*);
 struct replay_interface* find_interface(u_int32_t, u_int32_t);
+struct replay_interface* find_interface_by_name(char*);
+struct ospf_interface* find_oiface(struct replay_interface*);
+struct replay_interface* new_viface(char*);
+struct ospf_interface* iface_up(struct replay_interface*);
 u_int16_t get_if_metric(struct ospf_interface*);
 struct ospf_interface* find_oiface_by_socket(int);
 void toggle_stub(struct ospf_interface*);
 
-void sytem_if_up();
+void system_if_up();
 void system_if_down();
 
 

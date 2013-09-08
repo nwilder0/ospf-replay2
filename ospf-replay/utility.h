@@ -65,6 +65,8 @@ const char* byte_to_binary(int);
 
 uint32_t get_net(uint32_t,uint32_t);
 
+u_int8_t ip_in_net(u_int32_t,u_int32_t,u_int32_t);
+
 uint32_t bits2mask(int);
 
 int mask2bits(uint32_t);
