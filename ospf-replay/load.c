@@ -266,7 +266,7 @@ void load_config(const char* filename) {
 						}
 						else if(!strcmp("ip",word)) {
 							word = strtok(NULL,WHITESPACE);
-							if(word) {
+							if(word&&curr_rface->virtual) {
 
 								strcpy(net_string,strtok(word,"/"));
 								strcpy(mask_string,strtok(NULL,"/"));
