@@ -19,6 +19,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <math.h>
+#include "command.h"
 #include "event.h"
 #include "interface.h"
 #include "load.h"

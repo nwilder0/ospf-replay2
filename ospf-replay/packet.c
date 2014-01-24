@@ -677,6 +677,10 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 					memcpy(new_hdr,lsahdr,ntohs(lsahdr->length));
 					// add this lsa to the lsdb
 					lsa = add_lsa(new_hdr);
+					// if LSA recording is on for this interface, then write the lsa to disk
+					if(oiface->iface->record) {
+						fwrite(new_hdr,ntohs(new_hdr->length),1,oiface->iface->record);
+					}
 					// if successfully added then add the new lsa to the updated list
 					if(lsa) {
 						updated = add_to_nlist(updated,(void *)lsa,new_hdr->id.s_addr);

@@ -56,12 +56,6 @@ void load_config(const char* filename) {
 	char line[256];
 	// temp variable to hold log/error strings including variables
 	char mesg[256] = "";
-	// word# holds an individual word from current line of the file, ifname = interface name when in the interface block of the config file
-	char *word, *word2, *word3, *ifname, *logfilename;
-	char net_string[16],mask_string[16];
-	// indicates which block of the config file is currently being read
-	int config_block=0;
-	struct replay_interface *curr_rface;
 	// before we do anything create the global structs and make sure all their necessary members are NULL'd or zero'd out
 	load_defaults();
 
@@ -84,246 +78,16 @@ void load_config(const char* filename) {
 			// if a line is successfully read
 			if(fgets(line,sizeof(line),config)) {
 
-				// get the first word in the line
-				word = strtok(line,WHITESPACE);
-
-				// if the first word is logging, router, or interface then we are entering a 'section'
-				// or block of the config file and need to set the current config block variable appropriately
-				if(!strcmp("logging",word)) {
-					config_block = REPLAY_CONFIG_LOGGING;
-				}
-				else if(!strcmp("router",word)) {
-					config_block = REPLAY_CONFIG_ROUTER;
-				}
-				else if(!strcmp("interface",word)) {
-
-					//if we're entering an interface block, get the interface name
-					ifname = strtok(NULL,WHITESPACE);
-					// the interface block command is valid only with an interface name
-					if(ifname) {
-						config_block = REPLAY_CONFIG_IF;
-						// find the referenced interface
-						curr_rface = find_interface_by_name(ifname);
-						// if the interface name doesn't exist in the loaded list of physical interfaces
-						// then assume it is virtual
-						if(!curr_rface) {
-							curr_rface = new_viface(ifname);
-						}
-					}
-				}
-				// if the command isn't a block command and we are already in a block then go ahead and process it
-				else if(config_block) {
-
-					switch(config_block) {
-
-					case REPLAY_CONFIG_LOGGING:
-						if(!strcmp("file",word)) {
-							word = strtok(NULL,WHITESPACE);
-							if(word) {
-								logfilename = strtok(NULL,WHITESPACE);
-								if(logfilename) {
-									if(!strcmp("all",word)) {
-										replay0->packets = replay0->events = replay0->errors = fopen(logfilename,"a");
-										if(!replay0->packets) {
-											replay_error("file error: unable to open/create log specified in config file\n");
-										}
-									}
-									else if(!strcmp("events",word)) {
-										replay0->events = fopen(logfilename,"a");
-										if(!replay0->events) {
-											replay_error("file error: unable to open/create events log specified in config file\n");
-										}
-									}
-									else if(!strcmp("packets",word)) {
-										replay0->packets = fopen(logfilename,"a");
-										if(!replay0->packets) {
-											replay_error("file error: unable to open/create packets log specified in config file\n");
-										}
-									}
-									else if(!strcmp("errors",word)) {
-										replay0->errors = fopen(logfilename,"a");
-										if(!replay0->errors) {
-											replay_error("file error: unable to open/create errors log specified in config file\n");
-										}
-									}
-									else if(!strcmp("lsdb",word)) {
-										replay0->lsdb = fopen(logfilename,"a");
-										if(!replay0->lsdb) {
-											replay_error("file error: unable to open/create lsdb log specified in config file\n");
-										}
-									}
-								}
-								else {
-									replay_error("config file error: log block - missing log filename\n");
-								}
-							}
-							else {
-								replay_error("config file error: log block - missing file type (all, events, packets, errors, lsdb)\n");
-							}
-						}
-						else if(!strcmp("packets",word)) {
-							word = strtok(NULL,WHITESPACE);
-							while((word) || (replay0->log_packets < 255)) {
-								if(!strcmp("all",word)) {
-									replay0->log_packets = REPLAY_PACKETS_ALL;
-								}
-								else if(!strcmp("hello",word)) {
-									replay0->log_packets = replay0->log_packets + REPLAY_PACKETS_HELLO;
-								}
-								else if(!strcmp("dbdesc",word)) {
-									replay0->log_packets = replay0->log_packets + REPLAY_PACKETS_DBDESC;
-								}
-								else if(!strcmp("lsr",word)) {
-									replay0->log_packets = replay0->log_packets + REPLAY_PACKETS_LSR;
-								}
-								else if(!strcmp("lsu",word)) {
-									replay0->log_packets = replay0->log_packets + REPLAY_PACKETS_LSU;
-								}
-								else if(!strcmp("lsack",word)) {
-									replay0->log_packets = replay0->log_packets + REPLAY_PACKETS_LSACK;
-								}
-								word = strtok(NULL,WHITESPACE);
-							}
-							if(replay0->log_packets>255) {
-								replay_error("config error: log block - packet logging set to invalid value");
-								replay0->log_packets = REPLAY_PACKETS_NONE;
-							}
-						}
-						else if(!strcmp("events",word)) {
-							word = strtok(NULL,WHITESPACE);
-							while((word) || (replay0->log_events < 255)) {
-								if(!strcmp("all",word)) {
-									replay0->log_events = REPLAY_EVENTS_ALL;
-								}
-								else if(!strcmp("adj-change",word)) {
-									replay0->log_events = replay0->log_events + REPLAY_EVENTS_ADJ;
-								}
-								else if(!strcmp("if-change",word)) {
-									replay0->log_events = replay0->log_events + REPLAY_EVENTS_IF;
-								}
-								else if(!strcmp("spf",word)) {
-									replay0->log_events = replay0->log_events + REPLAY_EVENTS_SPF;
-								}
-								else if(!strcmp("auth",word)) {
-									replay0->log_events = replay0->log_events + REPLAY_EVENTS_AUTH;
-								}
-								word = strtok(NULL,WHITESPACE);
-							}
-							if(replay0->log_events>255) {
-								replay_error("config error: log block - event logging set to invalid value");
-								replay0->log_events = REPLAY_EVENTS_NONE;
-							}
-						}
-						else if(!strcmp("lsdb-history",word)) {
-							word = strtok(NULL,WHITESPACE);
-							if(word) {
-								replay0->lsdb_history = word[0] - '0';
-							}
-							else {
-								replay_error("config error: log block - no LSDB history number provided");
-							}
-						}
-
-						break;
-
-					case REPLAY_CONFIG_ROUTER:
-						// load router configuration
-						if(!strcmp("router-id",word)) {
-							word = strtok(NULL,WHITESPACE);
-							if(word) {
-								inet_pton(AF_INET,word,&ospf0->router_id);
-							}
-						}
-						else if(!strcmp("passive-interface",word)) {
-							ospf0->passif = 1;
-						}
-						else if(!strcmp("no",word)) {
-							word = strtok(NULL,WHITESPACE);
-							if(word) {
-								if(!strcmp("passive-interface",word)) {
-									ospf0->passif = 0;
-								}
-							}
-						}
-						else if(!strcmp("network",word)) {
-							word = strtok(NULL,WHITESPACE);
-							word2 = strtok(NULL,WHITESPACE);
-							word3 = strtok(NULL,WHITESPACE);
-							if(word && !strcmp("area",word2) && word3) {
-								add_prefix(word,atoi(word3));
-							}
-							else {
-								// if the network statement is missing an IP/mask, area statement or area number
-								// then record an error
-								strcat(mesg,"config error: invalid format of line - ");
-								strcat(mesg,line);
-								replay_error(mesg);
-								mesg[0]='\0';
-							}
-						}
-						break;
-
-					case REPLAY_CONFIG_IF:
-						// load interface config(s)
-						// load the FILE object to record LSAs to
-						if(!strcmp("record",word)) {
-							word = strtok(NULL,WHITESPACE);
-							if(word) {
-								curr_rface->record = fopen(word,"a");
-								if(!curr_rface->record) {
-									strcat(mesg,"file error: unable to open/create record log specified in config file - ");
-									strcat(mesg,word);
-									strcat(mesg,'\n');
-									replay_error(mesg);
-									mesg[0]='\0';
-								}
-							}
-						}
-						// load the FILE object to replay LSAs from
-						else if(!strcmp("replay",word)) {
-							word = strtok(NULL,WHITESPACE);
-							if(word) {
-								curr_rface->replay = fopen(word,"r");
-								if(!curr_rface->replay) {
-									strcat(mesg,"file error: unable to open replay log specified in config file - ");
-									strcat(mesg,word);
-									strcat(mesg,'\n');
-									replay_error(mesg);
-									mesg[0]='\0';
-								} else {
-									struct ospf_interface *oiface = find_oiface(curr_rface);
-									if(oiface) {
-										load_lsalist(oiface);
-									}
-								}
-							}
-						}
-						else if(!strcmp("ip",word)) {
-							word = strtok(NULL,WHITESPACE);
-							// set the IP if this is a virtual interface
-							if(word&&curr_rface->virtual) {
-
-								strcpy(net_string,strtok(word,"/"));
-								strcpy(mask_string,strtok(NULL,"/"));
-
-								curr_rface->mask.s_addr = bits2mask(atoi(mask_string));
-
-								inet_pton(AF_INET,net_string,&curr_rface->ip);
-								iface_up(curr_rface);
-							}
-						}
-
-						break;
-
-					}
-
-				}
+				// process the line as a command
+				process_command(line);
 
 			}
 		}
+		// close the config file
 		fclose(config);
 		replay_log("load_config: config file closed");
 	}
+	// set default files for any logging files not specified in the config file
 	replay_log("load_config: Setting log file defaults for any unset FILEs");
 	if(!replay0->errors) {
 		replay0->errors = fopen("errors.log","a");
@@ -335,7 +99,7 @@ void load_config(const char* filename) {
 		replay0->events = replay0->errors;
 	}
 	if(!replay0->lsdb) {
-		replay0->lsdb = fopen("lsdb.replay","a");
+		replay0->lsdb = fopen("lsdb.replay","a+");
 	}
 
 	replay_log("load_config: Finished loading config");
@@ -408,20 +172,28 @@ void unload_replay() {
 
 	//if route table ever added it will need to be freed
 
-	delete_list(replay0->iflist);
-	fclose(replay0->errors);
-	fclose(replay0->events);
-	fclose(replay0->lsdb);
+	while(replay0->iflist) {
+		struct replay_interface *tmp_rif = (struct replay_interface *)replay0->iflist->object;
+		if(tmp_rif) {
+			if(tmp_rif->record) {
+				fclose(tmp_rif->record);
+			}
+			if(tmp_rif->replay) {
+				fclose(tmp_rif->replay);
+			}
+		}
+		replay0->iflist = remove_from_list(replay0->iflist,replay0->iflist);
+	}
+
 	if(replay0->errors != replay0->packets) {
 		fclose(replay0->packets);
 	}
+	if(replay0->errors != replay0->events) {
+		fclose(replay0->events);
+	}
+	fclose(replay0->errors);
+	fclose(replay0->lsdb);
 	free(ospf0);
 	free(replay0);
 }
 
-void start_virtuals() {
-	// move thru replay iflist
-	// for each v iface
-	// add an ospf if
-
-}

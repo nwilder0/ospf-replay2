@@ -33,13 +33,17 @@ struct replay_interface {
 	char name[256];
 	struct in_addr ip;
 	struct in_addr mask;
-	long speed;
-	long mtu;
+	unsigned long speed;
+	unsigned long mtu;
 	int index;
 	int duplex;
 	int flags;
 	u_int8_t virtual;
 	FILE *replay, *record;
+	u_int8_t passif;
+	u_int16_t cost;
+	u_int32_t dead_interval, hello_interval, retransmit_interval, transmit_delay;
+	u_int8_t priority;
 };
 
 struct ospf_interface {
@@ -57,6 +61,7 @@ struct ospf_interface {
 	u_int16_t auth_type;
 	unsigned char auth_data[8];
 
+
 };
 
 #define OSPF_AUTHTYPE_NONE 0
@@ -73,7 +78,8 @@ void remove_interface(struct ospf_interface*);
 struct replay_interface* find_interface(u_int32_t, u_int32_t);
 struct replay_interface* find_interface_by_name(char*);
 struct ospf_interface* find_oiface(struct replay_interface*);
-struct replay_interface* new_viface(char*);
+struct replay_interface* add_viface(char*);
+void remove_viface(struct replay_interface*);
 struct ospf_interface* iface_up(struct replay_interface*);
 u_int16_t get_if_metric(struct ospf_interface*);
 struct ospf_interface* find_oiface_by_socket(int);

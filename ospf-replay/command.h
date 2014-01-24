@@ -29,6 +29,10 @@
 #include "packet.h"
 
 int process_command(char*);
+void command_logging(char*);
+void command_router(char*);
+void command_if(char*);
 void show_nbrs();
+void print_prompt();
 
 #endif /* COMMAND_H_ */

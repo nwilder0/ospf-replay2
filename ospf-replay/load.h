@@ -25,7 +25,9 @@
 #include "packet.h"
 #include "prefix.h"
 #include "replay.h"
+#include "command.h"
 
+#define REPLAY_CONFIG_NONE		0
 #define REPLAY_CONFIG_LOGGING 	1
 #define REPLAY_CONFIG_ROUTER 	2
 #define REPLAY_CONFIG_IF 		3
@@ -55,6 +57,10 @@ struct replay_config {
 	u_int8_t log_events;
 	u_int8_t lsdb_history;
 	struct replay_list *iflist;
+
+	u_int8_t cmd_state;
+	char *cmd_ifname;
+	struct replay_interface *cmd_iface;
 
 };
 

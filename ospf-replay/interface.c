@@ -249,6 +249,7 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 void remove_interface(struct ospf_interface *ospf_if) {
 	struct ospf_prefix *tmp_pfx;
 	struct replay_list *tmp_item,*next;
+	struct replay_nlist *tmp_nitem, *nnext;
 	struct ospf_interface *tmp_if;
 	struct ospf_neighbor *tmp_nbr;
 
@@ -275,14 +276,14 @@ void remove_interface(struct ospf_interface *ospf_if) {
 			free(tmp_item);
 			tmp_item = next;
 		}
-		tmp_item = ospf_if->lsalist;
-		while(tmp_item) {
-			next = tmp_item->next;
-			struct ospf_lsa *tmp_lsa = (struct ospf_lsa *)tmp_item->object;
+		tmp_nitem = ospf_if->lsalist;
+		while(tmp_nitem) {
+			nnext = tmp_nitem->next;
+			struct ospf_lsa *tmp_lsa = (struct ospf_lsa *)tmp_nitem->object;
 			free(tmp_lsa->header);
 			free(tmp_lsa);
-			free(tmp_item);
-			tmp_item = next;
+			free(tmp_nitem);
+			tmp_nitem = nnext;
 		}
 
 		tmp_item = ospf0->iflist;
@@ -391,7 +392,7 @@ struct ospf_interface* find_oiface(struct replay_interface *rface) {
 	return found;
 }
 
-struct replay_interface* new_viface(char *ifname) {
+struct replay_interface* add_viface(char *ifname) {
 
 	struct replay_interface *new_if;
 
@@ -411,6 +412,27 @@ struct replay_interface* new_viface(char *ifname) {
 
 
 	return new_if;
+}
+
+void remove_viface(struct replay_interface *iface) {
+
+	if(iface && iface->virtual) {
+		struct ospf_interface *oiface = find_oiface(iface);
+		if(oiface) {
+			remove_interface(oiface);
+		}
+		if(iface->record) {
+			fclose(iface->record);
+		}
+		if(iface->replay) {
+			fclose(iface->replay);
+		}
+		replay0->iflist = remove_from_list(replay0->iflist,find_in_list(replay0->iflist,(void*)iface));
+		free(iface);
+
+	} else {
+		replay_error("interface: remove_viface - attempt to remove non-existant or non-virtual interface");
+	}
 }
 
 struct ospf_interface* iface_up(struct replay_interface *iface) {
@@ -505,7 +527,7 @@ void load_lsalist(struct ospf_interface *oiface) {
 			struct ospf_lsa *obj_lsa = malloc(sizeof(*obj_lsa));
 
 			obj_lsa->header = lsa;
-			oiface->lsalist = add_to_nlist(oiface->lsalist,(void *)obj_lsa,obj_lsa->header->id);
+			oiface->lsalist = add_to_nlist(oiface->lsalist,(void *)obj_lsa,obj_lsa->header->id.s_addr);
 
 			bytes_read = fread(hdr,sizeof(*hdr),1,replay);
 		}

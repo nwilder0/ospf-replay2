@@ -107,15 +107,10 @@ void start_listening() {
 		for(i = 0; i<=max_socket; i++) {
 			if(FD_ISSET(i, &sockets_in)) {
 				if(!i) {
+
 					fgets(buffer,sizeof(buffer),stdin);
 					run_replay = process_command(buffer);
-					//if(!strcmp("quit\n",buffer)) {
-						//bool=0;
-					//}
-					//else {
-						//printf(">");
-						//fflush(stdout);
-					//}
+
 				}
 				else {
 
