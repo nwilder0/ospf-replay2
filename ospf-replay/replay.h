@@ -34,6 +34,10 @@ struct ospf {
 	struct replay_list *iflist;
 	int ifcount;
 
+	// virtual interfaces
+	struct replay_list *viflist;
+	int vifcount;
+
 	// Router ID
 	struct in_addr router_id;
 
@@ -53,6 +57,10 @@ struct ospf {
 	// OSPF neighbors
 	struct replay_list *nbrlist;
 	int nbrcount;
+
+	// virtual neighbors (for replays)
+	struct replay_list *vnbrlist;
+	int vnbrcount;
 
 	// OSPF events awaiting execution
 	struct replay_nlist *eventlist;
@@ -152,5 +160,7 @@ extern struct replay_config *replay0;
 extern struct ospf *ospf0;
 
 void recalc_max_socket();
+void write_lsdb(char *);
+void read_lsdb(char *);
 
 #endif /* REPLAY_H_ */

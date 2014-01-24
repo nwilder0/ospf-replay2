@@ -61,5 +61,6 @@ struct replay_config {
 void load_defaults();
 void load_config(const char*);
 void unload_replay();
+void start_virtuals();
 
 #endif /* LOAD_H_ */

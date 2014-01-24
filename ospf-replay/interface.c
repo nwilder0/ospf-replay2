@@ -197,6 +197,7 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		new_if->iface = iface;
 		new_if->pflist = NULL;
 		new_if->nbrlist = NULL;
+		new_if->lsalist = NULL;
 		new_if->metric = ospf0->ref_bandwdith / iface->speed;
 		inet_pton(AF_INET,"0.0.0.0",&new_if->bdr);
 		inet_pton(AF_INET,"0.0.0.0",&new_if->dr);
@@ -236,6 +237,10 @@ struct ospf_interface* add_interface(struct replay_interface *iface, u_int32_t a
 		ospf0->ifcount++;
 		add_event((void *)new_if,OSPF_EVENT_HELLO_BROADCAST);
 		add_event((void *)new_if,OSPF_EVENT_NO_DR);
+
+		if(new_if->iface->virtual && new_if->iface->replay) {
+			load_lsalist(new_if);
+		}
 	}
 	return new_if;
 
@@ -267,6 +272,15 @@ void remove_interface(struct ospf_interface *ospf_if) {
 			next = tmp_item->next;
 			tmp_nbr = (struct ospf_neighbor *)tmp_item->object;
 			remove_neighbor(tmp_nbr);
+			free(tmp_item);
+			tmp_item = next;
+		}
+		tmp_item = ospf_if->lsalist;
+		while(tmp_item) {
+			next = tmp_item->next;
+			struct ospf_lsa *tmp_lsa = (struct ospf_lsa *)tmp_item->object;
+			free(tmp_lsa->header);
+			free(tmp_lsa);
 			free(tmp_item);
 			tmp_item = next;
 		}
@@ -414,4 +428,88 @@ struct ospf_interface* iface_up(struct replay_interface *iface) {
 	}
 
 	return oface;
+}
+
+void refresh_virtuals() {
+
+	struct replay_list *item = ospf0->iflist;
+	while(item) {
+		struct ospf_interface *iface = (struct ospf_interface *) item->object;
+		if(iface) {
+			if(iface->iface->virtual && iface->lsalist) {
+				refresh_virtual(iface);
+			}
+		}
+		item = item->next;
+	}
+
+}
+
+// refresh the replay lsa list on the specified virtual ospf_interface as if LSUs
+// were recieved on that interface
+// also, send out LSUs to all legit ospf neighbors for the virtual LSAs
+void refresh_virtual(struct ospf_interface *iface) {
+
+	// move thru the interface's lsa replay list
+	struct replay_nlist *lsa_item = iface->lsalist;
+	while(lsa_item) {
+		// get the current lsa
+		struct ospf_lsa *lsa = (struct ospf_lsa *)lsa_item->object;
+
+		if(lsa) {
+			// malloc a new lsa packet
+			struct lsa_header *hdr = malloc(ntohs(lsa->header->length));
+			// copy the current lsa from the list into the new lsa packet
+			memcpy(hdr,lsa->header,sizeof(*hdr));
+			// add the new lsa packet to the ospf process
+			add_lsa(hdr);
+		}
+		// move to the next lsa in the list
+		lsa_item = lsa_item->next;
+	}
+
+	// get the list of ospf interfaces
+	struct replay_list *if_item = ospf0->iflist;
+	// for each ospf interface
+	while(if_item) {
+		// if at least one nbr exists, then...
+		struct replay_list *nbr_item = ((struct ospf_interface *) if_item->object)->nbrlist;
+		if(nbr_item) {
+			// send a broadcast lsu out this interface
+			struct ospf_neighbor *nbr = (struct ospf_neighbor *) nbr_item->object;
+			send_lsu(nbr,iface->lsalist,OSPF_LSU_NOTRETX);
+		}
+		// move to the next interface
+		if_item = if_item->next;
+	}
+}
+
+void load_lsalist(struct ospf_interface *oiface) {
+
+	FILE *replay = oiface->iface->replay;
+	if(replay) {
+		struct lsa_header *hdr;
+		hdr = (struct lsa_header *) malloc(sizeof(*hdr));
+		memset(hdr,0,sizeof(*hdr));
+
+		int bytes_read = fread(hdr,sizeof(*hdr),1,replay);
+		while(bytes_read==sizeof(*hdr)) {
+
+			u_int16_t lsa_size = ntohs(hdr->length);
+
+			void *lsa = malloc(lsa_size);
+			memset(lsa,0,sizeof(*lsa));
+			memcpy(lsa,hdr,sizeof(*hdr));
+			fread(lsa+sizeof(*hdr),lsa_size-sizeof(*hdr),1,replay);
+
+			struct ospf_lsa *obj_lsa = malloc(sizeof(*obj_lsa));
+
+			obj_lsa->header = lsa;
+			oiface->lsalist = add_to_nlist(oiface->lsalist,(void *)obj_lsa,obj_lsa->header->id);
+
+			bytes_read = fread(hdr,sizeof(*hdr),1,replay);
+		}
+		free(hdr);
+	}
+
 }

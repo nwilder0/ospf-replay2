@@ -708,7 +708,8 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 				// remove the LSR retransmit
 				find_and_remove_event((void *)nbr,OSPF_EVENT_LSR_RETX);
 
-				// if anything is still needed then send an lsr
+				// if anything is still needed then send a new, updated lsr
+				// otherwise move the nbr to FULL
 				if(nbr->lsa_need_list) {
 					send_lsr(nbr);
 				} else {
@@ -716,25 +717,33 @@ void process_lsu(void *packet,u_int32_t from,u_int32_t to,unsigned int size,stru
 				}
 			}
 
+			// for each active ospf interface
 			tmp_item = ospf0->iflist;
 			while(tmp_item) {
 				tmp_if = (struct ospf_interface *)(tmp_item->object);
 				if(tmp_if) {
+					// for each nbr in this iface
 					tmp_item2 = tmp_if->nbrlist;
 					send = 0;
 					while(tmp_item2) {
+						// get the current nbr from the list item
 						tmp_nbr = (struct ospf_neighbor *)(tmp_item2->object);
+						// if the nbr exists and is not the nbr who sent the lsu
 						if(tmp_nbr && (tmp_nbr != nbr)) {
+							// if the nbr is at a state to recieve LSAs
 							if(tmp_nbr->state>=OSPF_NBRSTATE_EXSTART) {
+								// then set the send flag
 								send = 1;
 								tmp_item2=NULL;
 							}
 						}
+						// move to the next nbr
 						if(tmp_item2) {
 							tmp_item2 = tmp_item2->next;
 						}
 					}
 				}
+				// if a valid target for the lsu was found on this iface then send it
 				if(send) {
 					send_lsu(tmp_nbr,updated,OSPF_LSU_NOTRETX);
 				}

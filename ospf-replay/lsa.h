@@ -119,6 +119,9 @@ struct ospf_lsa
 
   /* For Type-9 Opaque-LSAs */
   struct ospf_interface *oi;
+
+  u_int8_t virtual;
+
 };
 
 /* OSPF LSA Link Type. */

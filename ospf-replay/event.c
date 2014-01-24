@@ -73,6 +73,7 @@ void do_event(struct replay_nlist *item) {
 
 	case OSPF_EVENT_LSA_REFRESH:
 		set_router_lsa();
+		refresh_virtuals();
 		break;
 	}
 

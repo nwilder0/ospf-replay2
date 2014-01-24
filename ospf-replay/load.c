@@ -69,15 +69,26 @@ void load_config(const char* filename) {
 	strcat(mesg,filename);
 	replay_log(mesg);
 	mesg[0]='\0';
+
 	// open the config file for reading
 	config = fopen(filename,"r");
 
 	// if the file was successfully opened...
 	if(config) {
+
 		replay_log("load_config: File opened");
+
+		// read until the end of the file
 		while(!feof(config)) {
+
+			// if a line is successfully read
 			if(fgets(line,sizeof(line),config)) {
+
+				// get the first word in the line
 				word = strtok(line,WHITESPACE);
+
+				// if the first word is logging, router, or interface then we are entering a 'section'
+				// or block of the config file and need to set the current config block variable appropriately
 				if(!strcmp("logging",word)) {
 					config_block = REPLAY_CONFIG_LOGGING;
 				}
@@ -85,15 +96,22 @@ void load_config(const char* filename) {
 					config_block = REPLAY_CONFIG_ROUTER;
 				}
 				else if(!strcmp("interface",word)) {
+
+					//if we're entering an interface block, get the interface name
 					ifname = strtok(NULL,WHITESPACE);
+					// the interface block command is valid only with an interface name
 					if(ifname) {
 						config_block = REPLAY_CONFIG_IF;
+						// find the referenced interface
 						curr_rface = find_interface_by_name(ifname);
+						// if the interface name doesn't exist in the loaded list of physical interfaces
+						// then assume it is virtual
 						if(!curr_rface) {
 							curr_rface = new_viface(ifname);
 						}
 					}
 				}
+				// if the command isn't a block command and we are already in a block then go ahead and process it
 				else if(config_block) {
 
 					switch(config_block) {
@@ -235,7 +253,8 @@ void load_config(const char* filename) {
 								add_prefix(word,atoi(word3));
 							}
 							else {
-								// if the network statement is missing an IP/mask, area statement or area number then record an error
+								// if the network statement is missing an IP/mask, area statement or area number
+								// then record an error
 								strcat(mesg,"config error: invalid format of line - ");
 								strcat(mesg,line);
 								replay_error(mesg);
@@ -246,26 +265,42 @@ void load_config(const char* filename) {
 
 					case REPLAY_CONFIG_IF:
 						// load interface config(s)
+						// load the FILE object to record LSAs to
 						if(!strcmp("record",word)) {
 							word = strtok(NULL,WHITESPACE);
 							if(word) {
 								curr_rface->record = fopen(word,"a");
 								if(!curr_rface->record) {
-									replay_error("file error: unable to open/create record log specified in config file\n");
+									strcat(mesg,"file error: unable to open/create record log specified in config file - ");
+									strcat(mesg,word);
+									strcat(mesg,'\n');
+									replay_error(mesg);
+									mesg[0]='\0';
 								}
 							}
 						}
+						// load the FILE object to replay LSAs from
 						else if(!strcmp("replay",word)) {
 							word = strtok(NULL,WHITESPACE);
 							if(word) {
 								curr_rface->replay = fopen(word,"r");
 								if(!curr_rface->replay) {
-									replay_error("file error: unable to open replay log specified in config file\n");
+									strcat(mesg,"file error: unable to open replay log specified in config file - ");
+									strcat(mesg,word);
+									strcat(mesg,'\n');
+									replay_error(mesg);
+									mesg[0]='\0';
+								} else {
+									struct ospf_interface *oiface = find_oiface(curr_rface);
+									if(oiface) {
+										load_lsalist(oiface);
+									}
 								}
 							}
 						}
 						else if(!strcmp("ip",word)) {
 							word = strtok(NULL,WHITESPACE);
+							// set the IP if this is a virtual interface
 							if(word&&curr_rface->virtual) {
 
 								strcpy(net_string,strtok(word,"/"));
@@ -384,3 +419,9 @@ void unload_replay() {
 	free(replay0);
 }
 
+void start_virtuals() {
+	// move thru replay iflist
+	// for each v iface
+	// add an ospf if
+
+}

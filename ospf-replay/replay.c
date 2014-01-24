@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	}
 	printf("start_listening\n");
 	set_router_lsa();
-
+	refresh_virtuals();
 	// start listening for OSPF packets
 	ospf0->started = 1;
 	start_listening();
@@ -149,3 +149,64 @@ void recalc_max_socket() {
 	}
 
 }
+
+void write_lsdb(char *filename) {
+
+	FILE *lsdb;
+
+	if(filename) {
+		lsdb = fopen(filename,"w");
+	} else {
+		lsdb = replay0->lsdb;
+	}
+	if(lsdb) {
+		int i;
+		for(i=0; i<OSPF_LSA_TYPES; i++) {
+			struct replay_nlist *item = ospf0->lsdb->lsa_list[i];
+			while(item) {
+
+				struct ospf_lsa *lsa = (struct ospf_lsa *) item->object;
+				struct lsa_header *hdr = lsa->header;
+				u_int16_t size = ntohs(hdr->length);
+				fwrite(hdr,size,1,lsdb);
+
+				item = item->next;
+			}
+		}
+	}
+}
+
+void read_lsdb(char *filename) {
+
+	FILE *lsdb;
+
+	if(filename) {
+		lsdb = fopen(filename,"r");
+	} else {
+		lsdb = replay0->lsdb;
+	}
+	if(lsdb) {
+		struct lsa_header *hdr;
+		hdr = (struct lsa_header *) malloc(sizeof(*hdr));
+		memset(hdr,0,sizeof(*hdr));
+
+		int bytes_read = fread(hdr,sizeof(*hdr),1,lsdb);
+		while(bytes_read==sizeof(*hdr)) {
+
+			u_int16_t lsa_size = ntohs(hdr->length);
+
+			void *lsa = malloc(lsa_size);
+			memset(lsa,0,sizeof(*lsa));
+			memcpy(lsa,hdr,sizeof(*hdr));
+			fread(lsa+sizeof(*hdr),lsa_size-sizeof(*hdr),1,lsdb);
+
+			add_lsa((struct lsa_header *)lsa);
+
+
+			bytes_read = fread(hdr,sizeof(*hdr),1,lsdb);
+		}
+		free(hdr);
+	}
+}
+
+

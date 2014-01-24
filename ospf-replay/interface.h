@@ -47,6 +47,8 @@ struct ospf_interface {
 	u_int32_t area_id;
 	struct replay_list *pflist;
 	struct replay_list *nbrlist;
+	// list ospf_lsa objects replayed from this interface
+	struct replay_nlist *lsalist;
 	int ospf_socket;
 	u_int16_t metric;
 	struct in_addr bdr;
@@ -76,6 +78,9 @@ struct ospf_interface* iface_up(struct replay_interface*);
 u_int16_t get_if_metric(struct ospf_interface*);
 struct ospf_interface* find_oiface_by_socket(int);
 void toggle_stub(struct ospf_interface*);
+void refresh_virtuals();
+void refresh_virtual(struct ospf_interface *);
+void load_lsalist(struct ospf_interface *);
 
 void system_if_up();
 void system_if_down();

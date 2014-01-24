@@ -31,9 +31,9 @@ int process_command(char *buffer) {
 	char *word[10];
 
 	word[0] = strtok(buffer,WHITESPACE);
-	if(!strcmp("quit",buffer)) {
+	if(!strcmp("quit",word[0])) {
 		run_replay=0;
-	} else if(!strcmp("show",buffer)) {
+	} else if(!strcmp("show",word[0])) {
 		word[1] = strtok(NULL,WHITESPACE);
 		word[2] = strtok(NULL,WHITESPACE);
 		word[3] = strtok(NULL,WHITESPACE);
@@ -52,8 +52,30 @@ int process_command(char *buffer) {
 				}
 			}
 		}
-	} else if(!strcmp("debug",buffer)) {
+	} else if(!strcmp("debug",word[0])) {
 		// debug commands
+	} else if(!strcmp("write",word[0])) {
+		word[1] = strtok(NULL,WHITESPACE);
+		word[2] = strtok(NULL,WHITESPACE);
+		if(word[1]) {
+			if(!strcmp("lsdb",word[1])) {
+				write_lsdb(word[2]);
+				printf("LSDB written to disk\n");
+				printf(">");
+				fflush(stdout);
+			}
+		}
+	} else if(!strcmp("read",word[0])) {
+		word[1] = strtok(NULL,WHITESPACE);
+		word[2] = strtok(NULL,WHITESPACE);
+		if(word[1]) {
+			if(!strcmp("lsdb",word[1])) {
+				read_lsdb(word[2]);
+				printf("LSDB read from disk\n");
+				printf(">");
+				fflush(stdout);
+			}
+		}
 	} else {
 		printf(">");
 		fflush(stdout);
